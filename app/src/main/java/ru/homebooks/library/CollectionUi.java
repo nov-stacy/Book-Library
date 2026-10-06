@@ -12,8 +12,7 @@ final class CollectionUi {
         frame.addView(Ui.muted(activity,"Книг в коллекции: "+collection.isbns.size(),13));Ui.gap(frame,20);
         AlertDialog dialog=new AlertDialog.Builder(activity).setTitle("Редактировать коллекцию").setView(frame).setNegativeButton("Закрыть",null).create();
         frame.addView(Ui.action(activity,"Изменить название",()->{dialog.dismiss();name(activity,collection,changed);}),new LinearLayout.LayoutParams(-1,-2));Ui.gap(frame,16);Ui.divider(frame);Ui.gap(frame,16);
-        Button remove=Ui.button(activity,"Удалить коллекцию",()->{dialog.dismiss();delete(activity,collection,deleted);});
-        remove.setTextColor(0xFF984C52);remove.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x18984C52),Ui.round(0xFFF6EAEB,activity),null));
+        Button remove=Ui.dangerAction(activity,"Удалить коллекцию",()->{dialog.dismiss();delete(activity,collection,deleted);});
         frame.addView(remove,new LinearLayout.LayoutParams(-1,-2));dialog.show();
     }
     private static void delete(Activity activity,BookCollection collection,Runnable done){

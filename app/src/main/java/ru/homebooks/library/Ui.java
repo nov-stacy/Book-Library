@@ -39,6 +39,7 @@ final class Ui {
         button.setCompoundDrawablesRelative(symbol,null,null,null);button.setCompoundDrawablePadding(dp(c,12));return button;
     }
     static Button quietAction(Context c,String title,String icon,Runnable click){return withIcon(c,quietAction(c,title,click),icon,0xFF68566F);}
+    static Button dangerAction(Context c,String title,Runnable click){Button button=button(c,title,click);button.setTextColor(0xFF984C52);button.setBackground(new RippleDrawable(ColorStateList.valueOf(0x18984C52),round(0xFFF6EAEB,c),null));return button;}
     static Button action(Context c,String title,String icon,Runnable click){return withIcon(c,action(c,title,click),icon,Color.WHITE);}
     static Button quietAction(Context c,String title,Runnable click){
         Button b=button(c,title,click);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);
@@ -148,6 +149,7 @@ final class Ui {
                 case "document-scan":
                     for(int i=0;i<4;i++){c.save();c.rotate(i*90,12,12);path.reset();path.moveTo(3,8);path.lineTo(3,3);path.lineTo(8,3);c.drawPath(path,p);c.restore();}c.drawLine(7,12,17,12,p);break;
                 case "copy": c.drawRoundRect(8,8,21,21,2,2,p);path.moveTo(5,16);path.lineTo(3,16);path.lineTo(3,3);path.lineTo(16,3);path.lineTo(16,5);c.drawPath(path,p);break;
+                case "document": path.moveTo(5,3);path.lineTo(15,3);path.lineTo(20,8);path.lineTo(20,21);path.lineTo(5,21);path.close();path.moveTo(15,3);path.lineTo(15,8);path.lineTo(20,8);path.moveTo(9,13);path.lineTo(16,13);path.moveTo(9,17);path.lineTo(16,17);c.drawPath(path,p);break;
                 case "folder": path.moveTo(3,6);path.lineTo(9,6);path.lineTo(11,9);path.lineTo(21,9);path.lineTo(21,20);path.lineTo(3,20);path.close();c.drawPath(path,p);break;
                 case "edit": path.moveTo(4,16);path.lineTo(4,20);path.lineTo(8,20);path.lineTo(20,8);path.lineTo(16,4);path.close();c.drawPath(path,p);c.drawLine(13,7,17,11,p);break;
                 case "down": path.moveTo(5,9);path.lineTo(12,16);path.lineTo(19,9);c.drawPath(path,p);break;

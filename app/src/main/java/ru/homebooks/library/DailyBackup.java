@@ -47,7 +47,7 @@ final class DailyBackup {
         File staged=null;Uri created=null;
         try{
             staged=File.createTempFile("daily-backup-",".zip",app.getCacheDir());
-            try(OutputStream out=new FileOutputStream(staged)){LibraryBackup.write(out,app.store.all(),app.store::cover,app.store.collections(),app.store.bookTypes(),app.store.readingChallenges());}
+            try(OutputStream out=new FileOutputStream(staged)){LibraryBackup.write(out,app.store.all(),app.store::cover,app.store.collections(),app.store.bookTypes(),app.store.readingChallenges(),app.store.bookSeries());}
             if(stopped.get()||!location.equals(p.getString("tree","")))return false;
             Uri tree=Uri.parse(location);
             String name="library-auto-"+new SimpleDateFormat("yyyy-MM-dd-HHmmss",Locale.ROOT).format(new Date())+".zip";

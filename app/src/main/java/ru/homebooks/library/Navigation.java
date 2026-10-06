@@ -12,15 +12,16 @@ final class Navigation {
         ScrollView scroll=new ScrollView(activity);scroll.setFillViewport(true);scroll.setBackgroundColor(Ui.PAPER);
         LinearLayout panel=Ui.column(activity);panel.setPadding(Ui.dp(activity,16),Ui.dp(activity,24),Ui.dp(activity,16),Ui.dp(activity,24));scroll.addView(panel);
         LinearLayout heading=Ui.column(activity);heading.setPadding(Ui.dp(activity,16),0,Ui.dp(activity,16),0);
-        heading.addView(Ui.heading(activity,"Моя библиотека"));Ui.gap(heading,8);heading.addView(Ui.muted(activity,"Книги, типы, коллекции и прочитанное",14));panel.addView(heading);Ui.gap(panel,24);
+        heading.addView(Ui.heading(activity,"Моя библиотека"));Ui.gap(heading,8);heading.addView(Ui.muted(activity,"Книги, серии, коллекции и чтение",14));panel.addView(heading);Ui.gap(panel,24);
         Button books=item(activity,"Книги",()->open(activity,drawer,MainActivity.class));
         Button groups=item(activity,"Коллекции",()->open(activity,drawer,CollectionsActivity.class));
         Button types=item(activity,"Типы книг",()->open(activity,drawer,BookTypesActivity.class));
+        Button series=item(activity,"Серии",()->open(activity,drawer,SeriesActivity.class));
         Button read=item(activity,"Чтение",()->open(activity,drawer,ReadingStatsActivity.class));
         Button settings=item(activity,"Настройки",()->open(activity,drawer,SettingsActivity.class));
-        Button active=activity instanceof ReadActivity||activity instanceof ReadingStatsActivity?read:activity instanceof SettingsActivity?settings:activity instanceof BookTypesActivity?types:collections?groups:books;
+        Button active=activity instanceof ReadActivity||activity instanceof ReadingStatsActivity?read:activity instanceof SettingsActivity?settings:activity instanceof SeriesActivity||activity instanceof SeriesDetailActivity||activity instanceof SeriesEditorActivity?series:activity instanceof BookTypesActivity?types:collections?groups:books;
         active.setTextColor(Ui.GREEN);active.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22735081),Ui.round(Ui.TINT,activity),null));
-        for(Button button:new Button[]{books,groups,types,read}){panel.addView(button,new LinearLayout.LayoutParams(-1,-2));Ui.gap(panel,8);}
+        for(Button button:new Button[]{books,groups,types,series,read}){panel.addView(button,new LinearLayout.LayoutParams(-1,-2));Ui.gap(panel,8);}
         Ui.gap(panel,16);Ui.divider(panel);Ui.gap(panel,16);panel.addView(settings,new LinearLayout.LayoutParams(-1,-2));
         drawer.setContentView(scroll);drawer.setCanceledOnTouchOutside(true);Window window=drawer.getWindow();if(window!=null){window.setWindowAnimations(R.style.DrawerAnimation);window.setBackgroundDrawableResource(android.R.color.transparent);window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams params=window.getAttributes();params.gravity=Gravity.START|Gravity.TOP;params.width=Math.min(Ui.dp(activity,336),activity.getResources().getDisplayMetrics().widthPixels-Ui.dp(activity,48));params.height=-1;params.dimAmount=.32f;window.setAttributes(params);}drawer.show();
     }

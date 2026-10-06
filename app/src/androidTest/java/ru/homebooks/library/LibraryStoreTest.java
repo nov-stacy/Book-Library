@@ -8,6 +8,11 @@ import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class LibraryStoreTest {
+    @Test public void bookSeriesStoreOrderAndIssueMetadataWithoutOwningBooks(){
+        android.content.Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();String name="series-"+java.util.UUID.randomUUID()+".db";LibraryStore store=new LibraryStore(context,name);String book=Book.newLocalId(),issue=Book.newLocalId();
+        try{store.save(new Book(book,"Крещение огнём","",1));store.save(new Book(issue,"Мир фантастики № 7","",2));long series=store.createBookSeries("Ведьмак",BookSeries.BOOKS,8),periodical=store.createBookSeries("Мир фантастики",BookSeries.PERIODICAL,null);store.setBookSeries(book,series,"5","","");store.setBookSeries(issue,periodical,"","7","2025-07");assertEquals(series,store.bookSeriesIdForBook(book).longValue());assertEquals("5",store.bookSeriesMembership(book).position);assertEquals("2025-07",store.bookSeriesMembership(issue).issueDate);store.updateBookSeries(series,"Сага о Ведьмаке",9);assertEquals(Integer.valueOf(9),store.bookSeries(series).totalParts);store.deleteBookSeries(series);assertNull(store.bookSeriesIdForBook(book));assertNotNull(store.find(book));store.close();store=new LibraryStore(context,name);assertEquals("Мир фантастики",store.bookSeries(periodical).name);}
+        finally{store.close();context.deleteDatabase(name);}
+    }
     @Test public void readingChallengesPersistAndCanBeRemoved(){
         android.content.Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();String name="challenges-"+java.util.UUID.randomUUID()+".db";LibraryStore store=new LibraryStore(context,name);
         try{store.setReadingChallenge(2026,30);store.setReadingChallenge(2025,24);assertEquals(Integer.valueOf(30),store.readingChallenge(2026));store.setReadingChallenge(2026,36);store.close();store=new LibraryStore(context,name);assertEquals(Integer.valueOf(36),store.readingChallenges().get(2026));store.deleteReadingChallenge(2026);assertNull(store.readingChallenge(2026));try{store.setReadingChallenge(2026,0);fail();}catch(IllegalArgumentException expected){}}

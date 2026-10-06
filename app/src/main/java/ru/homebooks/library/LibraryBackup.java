@@ -16,10 +16,12 @@ final class LibraryBackup {
         final List<BookCollection> collections;
         final List<BookType> bookTypes;
         final Map<Integer,Integer> readingChallenges;
+        final List<BookSeries> series;
         Archive(List<Book> books,File directory){this(books,directory,Collections.emptyList());}
         Archive(List<Book> books,File directory,List<BookCollection> collections){this(books,directory,collections,Collections.emptyList());}
         Archive(List<Book> books,File directory,List<BookCollection> collections,List<BookType> bookTypes){this(books,directory,collections,bookTypes,Collections.emptyMap());}
-        Archive(List<Book> books,File directory,List<BookCollection> collections,List<BookType> bookTypes,Map<Integer,Integer> readingChallenges){this.books=books;this.directory=directory;this.collections=collections;this.bookTypes=bookTypes;this.readingChallenges=readingChallenges;}
+        Archive(List<Book> books,File directory,List<BookCollection> collections,List<BookType> bookTypes,Map<Integer,Integer> readingChallenges){this(books,directory,collections,bookTypes,readingChallenges,Collections.emptyList());}
+        Archive(List<Book> books,File directory,List<BookCollection> collections,List<BookType> bookTypes,Map<Integer,Integer> readingChallenges,List<BookSeries> series){this.books=books;this.directory=directory;this.collections=collections;this.bookTypes=bookTypes;this.readingChallenges=readingChallenges;this.series=series;}
         File cover(String isbn){return new File(directory,"covers/"+isbn+".jpg");}
         public void close(){remove(directory);}
     }
@@ -33,10 +35,13 @@ final class LibraryBackup {
         write(output,books,covers,collections,bookTypes,Collections.emptyMap());
     }
     static void write(OutputStream output,List<Book> books,Covers covers,List<BookCollection> collections,List<BookType> bookTypes,Map<Integer,Integer> readingChallenges) throws IOException {
+        write(output,books,covers,collections,bookTypes,readingChallenges,Collections.emptyList());
+    }
+    static void write(OutputStream output,List<Book> books,Covers covers,List<BookCollection> collections,List<BookType> bookTypes,Map<Integer,Integer> readingChallenges,List<BookSeries> series) throws IOException {
         if(books.size()>50000)throw new IOException("Слишком много книг в копии");
         try(ZipOutputStream zip=new ZipOutputStream(new BufferedOutputStream(output))){
             JSONObject manifest=new JSONObject();JSONArray rows=new JSONArray();
-            manifest.put("format","home-library-backup");manifest.put("version",6);
+            manifest.put("format","home-library-backup");manifest.put("version",7);
             manifest.put("createdAt",System.currentTimeMillis());
             for(Book b:books){
                 JSONObject row=new JSONObject();row.put("isbn",b.isbn);row.put("id",b.id);row.put("title",b.title);row.put("author",b.author);
@@ -46,6 +51,7 @@ final class LibraryBackup {
             JSONArray groups=new JSONArray();for(BookCollection group:collections){JSONObject item=new JSONObject();item.put("name",group.name);item.put("isbns",new JSONArray(group.isbns));groups.put(item);}manifest.put("collections",groups);
             JSONArray types=new JSONArray();for(BookType type:bookTypes){JSONObject item=new JSONObject();item.put("name",type.name);item.put("icon",type.icon);item.put("color",BookType.hex(type.color));item.put("isbns",new JSONArray(type.bookIds));types.put(item);}manifest.put("bookTypes",types);
             JSONArray challenges=new JSONArray();for(Map.Entry<Integer,Integer> challenge:readingChallenges.entrySet()){JSONObject item=new JSONObject();item.put("year",challenge.getKey());item.put("goal",challenge.getValue());challenges.put(item);}manifest.put("readingChallenges",challenges);
+            JSONArray seriesRows=new JSONArray();for(BookSeries group:series){JSONObject item=new JSONObject();item.put("name",group.name);item.put("kind",group.kind);if(group.totalParts==null)item.put("totalParts",JSONObject.NULL);else item.put("totalParts",group.totalParts);JSONArray members=new JSONArray();for(BookSeries.Member member:group.members){JSONObject link=new JSONObject();link.put("isbn",member.bookId);link.put("position",member.position);link.put("issueNumber",member.issueNumber);link.put("issueDate",member.issueDate);members.put(link);}item.put("members",members);seriesRows.put(item);}manifest.put("series",seriesRows);
             byte[] metadata=manifest.toString().getBytes(StandardCharsets.UTF_8);
             StringWriter csv=new StringWriter();Csv.write(csv,books);byte[] table=csv.toString().getBytes(StandardCharsets.UTF_8);
             if(metadata.length>MAX_ENTRY||table.length>MAX_ENTRY)throw new IOException("Превышен допустимый размер копии");
@@ -82,7 +88,7 @@ final class LibraryBackup {
             if(!metadata.isFile())throw new IOException("В файле нет данных резервной копии");
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(InputStream in=new FileInputStream(metadata)){copy(in,bytes,MAX_ENTRY);}
             JSONObject manifest=new JSONObject(new String(bytes.toByteArray(),StandardCharsets.UTF_8));
-            if(!"home-library-backup".equals(manifest.getString("format"))||(manifest.getInt("version")<1||manifest.getInt("version")>6))throw new IOException("Этот формат копии не поддерживается");
+            if(!"home-library-backup".equals(manifest.getString("format"))||(manifest.getInt("version")<1||manifest.getInt("version")>7))throw new IOException("Этот формат копии не поддерживается");
             JSONArray rows=manifest.getJSONArray("books");if(rows.length()>50000)throw new IOException("Слишком много книг в копии");
             List<Book> books=new ArrayList<>();Set<String> codes=new HashSet<>();
             for(int i=0;i<rows.length();i++){
@@ -123,7 +129,9 @@ final class LibraryBackup {
                 JSONArray data=manifest.getJSONArray("readingChallenges");if(data.length()>1000)throw new IOException("Слишком много целей чтения");
                 for(int i=0;i<data.length();i++){JSONObject item=data.getJSONObject(i);int year=item.getInt("year"),goal=item.getInt("goal");if(year<1||year>9999||goal<1||goal>999||challenges.put(year,goal)!=null)throw new IOException("Некорректная цель чтения");}
             }
-            valid=true;return new Archive(books,directory,groups,types,challenges);
+            List<BookSeries> series=new ArrayList<>();Set<String> seriesNames=new HashSet<>(),seriesBooks=new HashSet<>();
+            if(manifest.getInt("version")>=7){JSONArray data=manifest.getJSONArray("series");if(data.length()>10000)throw new IOException("Слишком много серий");for(int i=0;i<data.length();i++){JSONObject item=data.getJSONObject(i);String name=item.getString("name").trim();int kind=item.getInt("kind");Integer totalParts=item.isNull("totalParts")?null:item.getInt("totalParts");if(name.isEmpty()||name.length()>200||!seriesNames.add(name.toLowerCase(Locale.ROOT))||(kind!=BookSeries.BOOKS&&kind!=BookSeries.PERIODICAL)||(totalParts!=null&&(totalParts<1||totalParts>999))||(kind==BookSeries.PERIODICAL&&totalParts!=null))throw new IOException("Некорректная серия");JSONArray links=item.getJSONArray("members");List<BookSeries.Member> members=new ArrayList<>();for(int j=0;j<links.length();j++){JSONObject link=links.getJSONObject(j);String id=link.getString("isbn"),position=link.getString("position"),number=link.getString("issueNumber"),date=link.getString("issueDate");if(!codes.contains(id)||!seriesBooks.add(id)||position.length()>40||number.length()>40||!ReadingDate.valid(date))throw new IOException("Некорректная книга в серии");members.add(new BookSeries.Member(id,position,number,date));}series.add(new BookSeries(0,name,kind,totalParts,members));}}
+            valid=true;return new Archive(books,directory,groups,types,challenges,series);
         }catch(JSONException e){throw new IOException("Повреждены данные резервной копии",e);}
         finally{if(!valid)remove(directory);}
     }

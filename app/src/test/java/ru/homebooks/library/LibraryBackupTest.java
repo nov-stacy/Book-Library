@@ -40,6 +40,13 @@ public class LibraryBackupTest {
         ByteArrayOutputStream out=new ByteArrayOutputStream();LibraryBackup.write(out,Collections.emptyList(),code->new File(temp.getRoot(),"absent"),Collections.emptyList(),Collections.emptyList(),goals);
         try(LibraryBackup.Archive archive=LibraryBackup.read(new ByteArrayInputStream(out.toByteArray()),temp.getRoot())){assertEquals(goals,archive.readingChallenges);}
     }
+    @Test public void roundTripPreservesSeriesAndPeriodicals()throws Exception{
+        Book first=new Book(isbn,"Крещение огнём","",1),second=new Book("9780804429573","Мир фантастики № 7","",2);List<Book> books=Arrays.asList(first,second);
+        BookSeries novel=new BookSeries(1,"Ведьмак",BookSeries.BOOKS,8,Collections.singletonList(new BookSeries.Member(first.id,"5","","")));
+        BookSeries magazine=new BookSeries(2,"Мир фантастики",BookSeries.PERIODICAL,null,Collections.singletonList(new BookSeries.Member(second.id,"","7","2025-07")));
+        ByteArrayOutputStream out=new ByteArrayOutputStream();LibraryBackup.write(out,books,code->new File(temp.getRoot(),"absent"),Collections.emptyList(),Collections.emptyList(),Collections.emptyMap(),Arrays.asList(novel,magazine));
+        try(LibraryBackup.Archive archive=LibraryBackup.read(new ByteArrayInputStream(out.toByteArray()),temp.getRoot())){assertEquals(2,archive.series.size());BookSeries restoredBook=null,restoredMagazine=null;for(BookSeries item:archive.series)if(item.kind==BookSeries.BOOKS)restoredBook=item;else restoredMagazine=item;assertNotNull(restoredBook);assertNotNull(restoredMagazine);assertEquals("5",restoredBook.members.get(0).position);assertEquals("2025-07",restoredMagazine.members.get(0).issueDate);}
+    }
     @Test public void emptyLibraryAndMissingCoverAreSupported()throws Exception{
         for(List<Book> books:Arrays.asList(Collections.<Book>emptyList(),Collections.singletonList(new Book(isbn,"Книга","",0)))){
             ByteArrayOutputStream out=new ByteArrayOutputStream();LibraryBackup.write(out,books,code->new File(temp.getRoot(),"absent"));
