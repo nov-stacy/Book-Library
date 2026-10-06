@@ -8,6 +8,14 @@ import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class LibraryStoreTest {
+    @Test public void bookTypesUseUniqueNamesAndColorsAndDeletionKeepsBooks(){
+        android.content.Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();String name="types-"+java.util.UUID.randomUUID()+".db";LibraryStore store=new LibraryStore(context,name);String id=Book.newLocalId();
+        try{
+            assertEquals(9,store.bookTypes().size());store.save(new Book(id,"Книга","",1));long type=store.createBookType("Фотография","camera",0xFF456789);store.setBookType(id,type);assertEquals(type,store.bookTypeIdForBook(id).longValue());assertEquals("Фотография",store.bookTypeLabels().get(id).name);
+            try{store.createBookType("Другой","tag",0xFF456789);fail("Duplicate color must fail");}catch(android.database.sqlite.SQLiteConstraintException expected){}
+            store.deleteBookType(type);assertNull(store.bookTypeIdForBook(id));assertNotNull(store.find(id));
+        }finally{store.close();context.deleteDatabase(name);}
+    }
     @Test public void collectionMembershipTracksLastGroupAndDraftSaveIsAtomic(){
         android.content.Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();
         assertEquals("ru.homebooks.library.testbed",context.getPackageName());

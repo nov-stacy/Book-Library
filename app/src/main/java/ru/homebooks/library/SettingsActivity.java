@@ -155,7 +155,7 @@ public final class SettingsActivity extends ComponentActivity {
                     List<Book> books=app.store.all();
                     try(OutputStream out=app.getContentResolver().openOutputStream(uri,"wt")){
                         if(out==null)throw new IOException();
-                        if(full)LibraryBackup.write(out,books,app.store::cover,app.store.collections());
+                        if(full)LibraryBackup.write(out,books,app.store::cover,app.store.collections(),app.store.bookTypes());
                         else{Writer writer=new OutputStreamWriter(out,StandardCharsets.UTF_8);Csv.write(writer,books);}
                     }
                     complete((full?"Резервная копия сохранена. Книг: ":"CSV сохранён. Книг: ")+books.size());

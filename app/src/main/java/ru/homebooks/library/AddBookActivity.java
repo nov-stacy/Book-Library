@@ -26,6 +26,7 @@ public final class AddBookActivity extends ComponentActivity {
     private String scanCoverBook, pendingScanUri;
     private boolean pendingCoverPhoto;
     private String readOn="",originalReadOn="",knownIsbn="";
+    private Long draftTypeId,originalTypeId;
     private boolean busy, continuous, lookupEntry, editing, lastDuplicate;
     private int request;
     private boolean manualEntry;
@@ -34,8 +35,11 @@ public final class AddBookActivity extends ComponentActivity {
     private String draftCoverPath;
     private BookLocation location=BookLocation.HOME,originalLocation=BookLocation.HOME;
     private ReadingStatus readingStatus=ReadingStatus.NONE;
+    private ReadingStatus originalReadingStatus=ReadingStatus.NONE;
     private String originalTitle="", originalAuthor="";
+    private boolean reopenTypePicker;
     private final ActivityResultLauncher<String> pickCover=registerForActivityResult(new ActivityResultContracts.GetContent(), uri->{if(uri!=null)previewCover(uri,true);});
+    private final ActivityResultLauncher<Intent> typeEditor=registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),result->{if(result.getResultCode()==RESULT_OK&&result.getData()!=null&&result.getData().hasExtra("typeId"))draftTypeId=result.getData().getLongExtra("typeId",-1);if(reopenTypePicker){reopenTypePicker=false;chooseType();}else editor();});
     private final ActivityResultLauncher<Intent> editCover=registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),result->{
         if(result.getResultCode()!=RESULT_OK||result.getData()==null)return;
         String path=result.getData().getStringExtra("coverPath"),target=result.getData().getStringExtra("bookId");
@@ -61,7 +65,7 @@ public final class AddBookActivity extends ComponentActivity {
     @Override public void onCreate(Bundle state){
         super.onCreate(state);app=(LibraryApp)getApplication();
         getOnBackPressedDispatcher().addCallback(this,new OnBackPressedCallback(true){public void handleOnBackPressed(){leave();}});
-        if(state!=null){duplicateCoverOffer=state.getBoolean("duplicateCoverOffer");offerCover=state.getBoolean("offerCover");confirming=state.getBoolean("confirming");confirmationFlow=state.getBoolean("confirmationFlow");continuous=state.getBoolean("continuous");lookupEntry=state.getBoolean("lookupEntry");lastIsbn=state.getString("lastIsbn","");lastTitle=state.getString("lastTitle","");lastDuplicate=state.getBoolean("lastDuplicate");draftCoverPath=state.getString("draftCoverPath");scanCoverBook=state.getString("scanCoverBook");pendingScanUri=state.getString("pendingScanUri");pendingCoverPhoto=state.getBoolean("pendingCoverPhoto");java.util.ArrayList<String> groups=state.getStringArrayList("draftCollections");if(groups!=null)draftCollections.addAll(groups);java.util.ArrayList<String> originalGroups=state.getStringArrayList("originalCollections");if(originalGroups!=null)originalCollections.addAll(originalGroups);knownIsbn=state.getString("knownIsbn","");readOn=state.getString("readOn","");originalReadOn=state.getString("originalReadOn",readOn);location=BookLocation.fromId(state.getInt("location",0));originalLocation=BookLocation.fromId(state.getInt("originalLocation",location.id));isbn=state.getString("isbn");if(knownIsbn.isEmpty()&&isbn!=null&&!Book.isLocalId(isbn))knownIsbn=isbn;draftTitle=state.getString("title","");draftAuthor=state.getString("author","");addedAt=state.getLong("date");notice=state.getString("notice","");readingStatus=ReadingStatus.fromId(state.getInt("readingStatus",0));editing=state.getBoolean("editing");editMode=state.getBoolean("editMode");originalTitle=state.getString("originalTitle",draftTitle);originalAuthor=state.getString("originalAuthor",draftAuthor);
+        if(state!=null){duplicateCoverOffer=state.getBoolean("duplicateCoverOffer");offerCover=state.getBoolean("offerCover");confirming=state.getBoolean("confirming");confirmationFlow=state.getBoolean("confirmationFlow");continuous=state.getBoolean("continuous");lookupEntry=state.getBoolean("lookupEntry");lastIsbn=state.getString("lastIsbn","");lastTitle=state.getString("lastTitle","");lastDuplicate=state.getBoolean("lastDuplicate");draftCoverPath=state.getString("draftCoverPath");scanCoverBook=state.getString("scanCoverBook");pendingScanUri=state.getString("pendingScanUri");pendingCoverPhoto=state.getBoolean("pendingCoverPhoto");java.util.ArrayList<String> groups=state.getStringArrayList("draftCollections");if(groups!=null)draftCollections.addAll(groups);java.util.ArrayList<String> originalGroups=state.getStringArrayList("originalCollections");if(originalGroups!=null)originalCollections.addAll(originalGroups);if(state.containsKey("draftTypeId"))draftTypeId=state.getLong("draftTypeId");if(state.containsKey("originalTypeId"))originalTypeId=state.getLong("originalTypeId");knownIsbn=state.getString("knownIsbn","");readOn=state.getString("readOn","");originalReadOn=state.getString("originalReadOn",readOn);location=BookLocation.fromId(state.getInt("location",0));originalLocation=BookLocation.fromId(state.getInt("originalLocation",location.id));isbn=state.getString("isbn");if(knownIsbn.isEmpty()&&isbn!=null&&!Book.isLocalId(isbn))knownIsbn=isbn;draftTitle=state.getString("title","");draftAuthor=state.getString("author","");addedAt=state.getLong("date");notice=state.getString("notice","");readingStatus=ReadingStatus.fromId(state.getInt("readingStatus",0));originalReadingStatus=ReadingStatus.fromId(state.getInt("originalReadingStatus",readingStatus.id));editing=state.getBoolean("editing");editMode=state.getBoolean("editMode");originalTitle=state.getString("originalTitle",draftTitle);originalAuthor=state.getString("originalAuthor",draftAuthor);
             confirming=false;confirmationFlow=false;
             if(state.getBoolean("busy"))notice="Поиск прерван. Нажмите «Повторить поиск» или заполните карточку.";
             if(isbn==null){manualIsbn=state.getString("manualIsbn","");if(state.getBoolean("manualEntry"))manualIsbnScreen();else selection();}else{editor();if(pendingScanUri!=null)previewCover(Uri.parse(pendingScanUri),pendingCoverPhoto);}return;}
@@ -69,7 +73,7 @@ public final class AddBookActivity extends ComponentActivity {
         if(existing!=null){lookupEntry=false;openIsbn(existing);}else selection();
         if(Intent.ACTION_SEND.equals(getIntent().getAction()))sharePage(getIntent().getStringExtra(Intent.EXTRA_TEXT));
     }
-    @Override protected void onSaveInstanceState(Bundle state){capture();state.putBoolean("manualEntry",manualEntry);state.putString("manualIsbn",manualEntry&&isbnInput!=null?isbnInput.getText().toString():manualIsbn);state.putBoolean("offerCover",offerCover);state.putBoolean("confirming",confirming);state.putBoolean("confirmationFlow",confirmationFlow);state.putBoolean("continuous",continuous);state.putBoolean("lookupEntry",lookupEntry);state.putString("lastIsbn",lastIsbn);state.putString("lastTitle",lastTitle);state.putBoolean("lastDuplicate",lastDuplicate);state.putString("draftCoverPath",draftCoverPath);state.putString("scanCoverBook",scanCoverBook);state.putString("pendingScanUri",pendingScanUri);state.putBoolean("pendingCoverPhoto",pendingCoverPhoto);state.putStringArrayList("draftCollections",new java.util.ArrayList<>(draftCollections));state.putStringArrayList("originalCollections",new java.util.ArrayList<>(originalCollections));state.putString("knownIsbn",knownIsbn);state.putString("readOn",readOn);state.putString("originalReadOn",originalReadOn);state.putInt("location",location.id);state.putInt("originalLocation",originalLocation.id);state.putString("isbn",isbn);state.putString("title",draftTitle);state.putString("author",draftAuthor);state.putLong("date",addedAt);state.putString("notice",notice);state.putBoolean("busy",busy);state.putInt("readingStatus",readingStatus.id);state.putBoolean("editing",editing);state.putBoolean("editMode",editMode);state.putString("originalTitle",originalTitle);state.putString("originalAuthor",originalAuthor);state.putBoolean("duplicateCoverOffer",duplicateCoverOffer);super.onSaveInstanceState(state);}
+    @Override protected void onSaveInstanceState(Bundle state){capture();state.putBoolean("manualEntry",manualEntry);state.putString("manualIsbn",manualEntry&&isbnInput!=null?isbnInput.getText().toString():manualIsbn);state.putBoolean("offerCover",offerCover);state.putBoolean("confirming",confirming);state.putBoolean("confirmationFlow",confirmationFlow);state.putBoolean("continuous",continuous);state.putBoolean("lookupEntry",lookupEntry);state.putString("lastIsbn",lastIsbn);state.putString("lastTitle",lastTitle);state.putBoolean("lastDuplicate",lastDuplicate);state.putString("draftCoverPath",draftCoverPath);state.putString("scanCoverBook",scanCoverBook);state.putString("pendingScanUri",pendingScanUri);state.putBoolean("pendingCoverPhoto",pendingCoverPhoto);state.putStringArrayList("draftCollections",new java.util.ArrayList<>(draftCollections));state.putStringArrayList("originalCollections",new java.util.ArrayList<>(originalCollections));if(draftTypeId!=null)state.putLong("draftTypeId",draftTypeId);if(originalTypeId!=null)state.putLong("originalTypeId",originalTypeId);state.putString("knownIsbn",knownIsbn);state.putString("readOn",readOn);state.putString("originalReadOn",originalReadOn);state.putInt("location",location.id);state.putInt("originalLocation",originalLocation.id);state.putString("isbn",isbn);state.putString("title",draftTitle);state.putString("author",draftAuthor);state.putLong("date",addedAt);state.putString("notice",notice);state.putBoolean("busy",busy);state.putInt("readingStatus",readingStatus.id);state.putInt("originalReadingStatus",originalReadingStatus.id);state.putBoolean("editing",editing);state.putBoolean("editMode",editMode);state.putString("originalTitle",originalTitle);state.putString("originalAuthor",originalAuthor);state.putBoolean("duplicateCoverOffer",duplicateCoverOffer);super.onSaveInstanceState(state);}
     private void capture(){if(title!=null){draftTitle=title.getText().toString();draftAuthor=author.getText().toString();}}
     private void shell(String eyebrow,String heading){
         title=null;author=null;
@@ -88,7 +92,7 @@ public final class AddBookActivity extends ComponentActivity {
         card.addView(Ui.primary(this,"Начать сканирование",this::startScan),new LinearLayout.LayoutParams(-1,-2));body.addView(card);Ui.gap(body,24);
         body.addView(Ui.action(this,"Ввести ISBN вручную",this::manualIsbnScreen),new LinearLayout.LayoutParams(-1,-2));
         Ui.gap(body,12);body.addView(Ui.action(this,"Добавить без ISBN",()->{
-            draftCollections.clear();knownIsbn="";readOn="";originalReadOn="";isbn=Book.newLocalId();draftTitle="";draftAuthor="";addedAt=System.currentTimeMillis();readingStatus=ReadingStatus.NONE;location=BookLocation.HOME;
+            draftCollections.clear();draftTypeId=null;originalTypeId=null;knownIsbn="";readOn="";originalReadOn="";isbn=Book.newLocalId();draftTitle="";draftAuthor="";addedAt=System.currentTimeMillis();readingStatus=ReadingStatus.NONE;originalReadingStatus=ReadingStatus.NONE;location=BookLocation.HOME;
             busy=false;editing=false;editMode=true;continuous=false;lookupEntry=false;notice="Введите название и автора. Обложку можно выбрать с телефона.";editor();
         }),new LinearLayout.LayoutParams(-1,-2));
         Ui.gap(body,24);body.addView(Ui.muted(this,"Данные ищутся в каталогах и интернете. Ваша библиотека хранится только на телефоне.",13));
@@ -118,10 +122,10 @@ public final class AddBookActivity extends ComponentActivity {
     private void openIsbn(String raw){
         clearDraftCover();duplicateCoverOffer=false;confirming=false;confirmationFlow=false;draftCollections.clear();
         String code=Book.isLocalId(raw)?raw:Isbn.normalize(raw);if(code==null){toast("Некорректный ISBN");return;}
-        knownIsbn=Book.isLocalId(code)?"":code;readOn="";originalReadOn="";isbn=code;location=BookLocation.HOME;readingStatus=ReadingStatus.NONE;draftTitle="";draftAuthor="";addedAt=System.currentTimeMillis();busy=true;editing=false;editMode=false;notice="Проверяем вашу библиотеку…";editor();int token=++request;
-        app.io.execute(()->{try{Book found=app.store.find(code);if(found==null)found=app.store.findByIsbn(code);Book saved=found;boolean missingSavedCover=saved!=null&&!hasReadableCover(app.store.cover(saved.id));java.util.Set<String> savedGroups=new java.util.LinkedHashSet<>();if(saved!=null)for(BookCollection group:app.store.collections())if(group.isbns.contains(saved.id))savedGroups.add(Long.toString(group.id));runOnUiThread(()->{if(!active(token))return;
+        knownIsbn=Book.isLocalId(code)?"":code;readOn="";originalReadOn="";isbn=code;location=BookLocation.HOME;readingStatus=ReadingStatus.NONE;originalReadingStatus=ReadingStatus.NONE;draftTypeId=null;originalTypeId=null;draftTitle="";draftAuthor="";addedAt=System.currentTimeMillis();busy=true;editing=false;editMode=false;notice="Проверяем вашу библиотеку…";editor();int token=++request;
+        app.io.execute(()->{try{Book found=app.store.find(code);if(found==null)found=app.store.findByIsbn(code);Book saved=found;boolean missingSavedCover=saved!=null&&!hasReadableCover(app.store.cover(saved.id));java.util.Set<String> savedGroups=new java.util.LinkedHashSet<>();Long savedType=null;if(saved!=null){for(BookCollection group:app.store.collections())if(group.isbns.contains(saved.id))savedGroups.add(Long.toString(group.id));savedType=app.store.bookTypeIdForBook(saved.id);}Long readyType=savedType;runOnUiThread(()->{if(!active(token))return;
             if(saved!=null){isbn=saved.id;knownIsbn=saved.isbn;if(lookupEntry){lastIsbn=code;lastTitle=saved.title;lastDuplicate=true;busy=false;if(!missingSavedCover){continueAfterDuplicate();return;}duplicateCoverOffer=true;}
-                draftCollections.clear();draftCollections.addAll(savedGroups);originalCollections.clear();originalCollections.addAll(savedGroups);busy=false;editing=true;editMode=false;readOn=saved.readOn;originalReadOn=readOn;readingStatus=saved.status;location=saved.location;originalLocation=location;draftTitle=saved.title;draftAuthor=saved.author;originalTitle=saved.title;originalAuthor=saved.author;addedAt=saved.addedAt;notice="Сохранено на телефоне";editor();
+                draftCollections.clear();draftCollections.addAll(savedGroups);originalCollections.clear();originalCollections.addAll(savedGroups);draftTypeId=readyType;originalTypeId=readyType;busy=false;editing=true;editMode=false;readOn=saved.readOn;originalReadOn=readOn;readingStatus=saved.status;originalReadingStatus=readingStatus;location=saved.location;originalLocation=location;draftTitle=saved.title;draftAuthor=saved.author;originalTitle=saved.title;originalAuthor=saved.author;addedAt=saved.addedAt;notice="Сохранено на телефоне";editor();
             }else if(Book.isLocalId(code)){busy=false;notice="Книга не найдена";toast(notice);finish();}else lookup(null);
         });}catch(Exception e){runOnUiThread(()->{if(active(token)){busy=false;notice="Не удалось прочитать библиотеку. Попробуйте ещё раз.";editor();}});}});
     }
@@ -305,7 +309,9 @@ public final class AddBookActivity extends ComponentActivity {
             TextView collection=Ui.muted(this,"Коллекция",13);body.addView(collection);Ui.gap(body,4);
             TextView collectionName=Ui.text(this,"Без коллекции",15);body.addView(collectionName);Ui.gap(body,20);
             app.io.execute(()->{String label=BookCollection.label(app.store.collectionLabels(),codeValue);runOnUiThread(()->{if(!isDestroyed())collectionName.setText(label);});});
-            body.addView(Ui.action(this,"Редактировать",()->{originalLocation=location;originalReadOn=readOn;originalTitle=draftTitle;originalAuthor=draftAuthor;originalCollections.clear();originalCollections.addAll(draftCollections);editMode=true;editor();}));Ui.gap(body,12);
+            TextView typeLabel=Ui.muted(this,"Тип книги",13);body.addView(typeLabel);Ui.gap(body,4);TextView typeName=Ui.text(this,"Без типа",15);body.addView(typeName);Ui.gap(body,20);
+            app.io.execute(()->{BookType type=draftTypeId==null?null:app.store.bookType(draftTypeId);runOnUiThread(()->{if(!isDestroyed())typeName.setText(type==null?"Без типа":type.name);});});
+            body.addView(Ui.action(this,"Редактировать",()->{originalLocation=location;originalReadOn=readOn;originalTitle=draftTitle;originalAuthor=draftAuthor;originalCollections.clear();originalCollections.addAll(draftCollections);originalTypeId=draftTypeId;originalReadingStatus=readingStatus;editMode=true;editor();}));Ui.gap(body,12);
             Button delete=Ui.button(this,"Удалить книгу",this::confirmDelete);delete.setTextColor(android.graphics.Color.rgb(157,55,65));delete.setBackgroundColor(Color.TRANSPARENT);body.addView(delete);
             return;
         }
@@ -316,14 +322,17 @@ public final class AddBookActivity extends ComponentActivity {
         body.addView(Ui.eyebrow(this,"НАЗВАНИЕ"));Ui.gap(body,8);title=Ui.input(this,"Название книги");title.setText(draftTitle);addTitleInput();Ui.gap(body,12);titleSearchButton();
         body.addView(Ui.eyebrow(this,"АВТОР"));Ui.gap(body,8);author=Ui.input(this,"Имя автора");author.setText(draftAuthor);body.addView(author);Ui.gap(body,24);
         LinearLayout properties=Ui.column(this);properties.setBackground(Ui.surface(this,Color.WHITE,Ui.LINE,12));
-        properties.addView(Ui.property(this,"Местонахождение",location.label,Ui.INK,this::chooseLocation));Ui.divider(properties);
-        properties.addView(Ui.property(this,"Дата прочтения",ReadingDate.label(readOn),Ui.INK,this::chooseReadDate));Ui.divider(properties);
+        properties.addView(Ui.property(this,"Статус",readingStatus==ReadingStatus.NONE?"Без статуса":readingStatus.label,Ui.INK,this::chooseStatus));Ui.divider(properties);
         Ui.PropertyRow collectionRow=Ui.property(this,"Коллекция",draftCollections.isEmpty()?"Выбрать коллекцию":"Выбранная коллекция",Ui.INK,()->{
             capture();CollectionUi.forDraft(this,new java.util.LinkedHashSet<>(draftCollections),values->{draftCollections.clear();draftCollections.addAll(values);},this::editor);
-        });properties.addView(collectionRow);body.addView(properties);Ui.gap(body,20);
+        });properties.addView(collectionRow);Ui.divider(properties);
+        Ui.PropertyRow typeRow=Ui.property(this,"Тип книги","Без типа",Ui.INK,this::chooseType);properties.addView(typeRow);Ui.divider(properties);
+        properties.addView(Ui.property(this,"Местонахождение",location.label,Ui.INK,this::chooseLocation));Ui.divider(properties);
+        properties.addView(Ui.property(this,"Дата прочтения",ReadingDate.label(readOn),Ui.INK,this::chooseReadDate));body.addView(properties);Ui.gap(body,20);
         java.util.Set<String> selected=new java.util.LinkedHashSet<>(draftCollections);
         app.io.execute(()->{java.util.List<String> labels=new java.util.ArrayList<>();for(BookCollection group:app.store.collections())if(selected.contains(Long.toString(group.id)))labels.add(group.name);
             runOnUiThread(()->{if(!isDestroyed())collectionRow.setValue(labels.isEmpty()?"Выбрать коллекцию":String.join(", ",labels));});});
+        updateTypeRow(typeRow);
         body.addView(Ui.primary(this,"Сохранить книгу",this::save));Ui.gap(body,12);
         if(editing){Button cancel=Ui.textButton(this,"Отмена",this::cancelEdit);cancel.setGravity(Gravity.CENTER);body.addView(cancel);return;}
         if(Book.isLocalId(isbn))return;
@@ -348,11 +357,12 @@ public final class AddBookActivity extends ComponentActivity {
             body.addView(Ui.quietAction(this,"Изменить обложку","edit",this::coverActions));
         }else coverButtons();
         Ui.gap(body,18);LinearLayout properties=Ui.column(this);properties.setBackground(Ui.surface(this,Color.WHITE,Ui.LINE,12));
+        properties.addView(Ui.property(this,"Статус",readingStatus==ReadingStatus.NONE?"Без статуса":readingStatus.label,Ui.INK,this::chooseStatus));Ui.divider(properties);
         Ui.PropertyRow collection=Ui.property(this,"Коллекция",draftCollections.isEmpty()?"Без коллекции":"Выбрана",Ui.INK,()->{capture();CollectionUi.forDraft(this,new java.util.LinkedHashSet<>(draftCollections),values->{draftCollections.clear();draftCollections.addAll(values);},this::editor);});properties.addView(collection);Ui.divider(properties);
         java.util.Set<String> selected=new java.util.LinkedHashSet<>(draftCollections);app.io.execute(()->{java.util.List<String> labels=new java.util.ArrayList<>();for(BookCollection group:app.store.collections())if(selected.contains(Long.toString(group.id)))labels.add(group.name);runOnUiThread(()->{if(!isDestroyed())collection.setValue(labels.isEmpty()?"Без коллекции":String.join(", ",labels));});});
+        Ui.PropertyRow type=Ui.property(this,"Тип книги","Без типа",Ui.INK,this::chooseType);properties.addView(type);updateTypeRow(type);Ui.divider(properties);
         properties.addView(Ui.property(this,"Местонахождение",location.label,Ui.INK,this::chooseLocation));Ui.divider(properties);
-        properties.addView(Ui.property(this,"Статус",readingStatus==ReadingStatus.NONE?"Выбрать":readingStatus.label,Ui.INK,this::chooseStatus));
-        if(readingStatus==ReadingStatus.READ||!readOn.isEmpty()){Ui.divider(properties);properties.addView(Ui.property(this,"Дата прочтения",ReadingDate.label(readOn),Ui.INK,this::chooseReadDate));}
+        properties.addView(Ui.property(this,"Дата прочтения",ReadingDate.label(readOn),Ui.INK,this::chooseReadDate));
         body.addView(properties);Ui.gap(body,20);body.addView(Ui.primary(this,continuous?"Сохранить и сканировать дальше":"Сохранить книгу",this::save));Ui.gap(body,8);
         if(duplicateCoverOffer)body.addView(Ui.textButton(this,continuous?"Продолжить без изменений":"Вернуться",()->{clearDraftCover();continueAfterDuplicate();}));
         else if(continuous)body.addView(Ui.textButton(this,"Пропустить книгу",()->skipFoundBook(false)));
@@ -387,13 +397,14 @@ public final class AddBookActivity extends ComponentActivity {
                 if(continuous){isbn=null;startScan();}else{setResult(RESULT_OK,new Intent().putExtra("savedIsbn",saved.id).putExtra("savedTitle",saved.title).putExtra("alreadySaved",true));finish();}});return;}
             android.database.sqlite.SQLiteDatabase db=app.store.getWritableDatabase();db.beginTransaction();
             try{
-                if(isNew)app.store.saveWithCollections(book,groups);else{app.store.saveEdited(book);if(duplicateCoverOffer)app.store.setStatus(book.id,book.status);if(!draftCollections.equals(originalCollections))app.store.setBookCollections(book.id,groups);}
+                if(isNew)app.store.saveWithCollectionsAndType(book,groups,draftTypeId);
+                else{app.store.saveEdited(book);if(!draftCollections.equals(originalCollections))app.store.setBookCollections(book.id,groups);if(!java.util.Objects.equals(draftTypeId,originalTypeId))app.store.setBookType(book.id,draftTypeId);if(duplicateCoverOffer||readingStatus!=originalReadingStatus)app.store.setStatus(book.id,book.status);}
                 if(pendingCover!=null){try(java.io.FileInputStream in=new java.io.FileInputStream(pendingCover);java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);app.store.saveCover(book.id,out.toByteArray());}}
                 db.setTransactionSuccessful();
             }finally{db.endTransaction();}
             runOnUiThread(()->{if(!active(token))return;busy=false;setResult(RESULT_OK,new Intent().putExtra("savedIsbn",book.id).putExtra("savedTitle",book.title));lastIsbn=book.isbn.isEmpty()?book.id:book.isbn;lastTitle=book.title;lastDuplicate=editing;clearDraftCover();confirming=false;confirmationFlow=false;
             if(duplicateCoverOffer){clearDraftCover();continueAfterDuplicate();}
-            else if(editing){originalCollections.clear();originalCollections.addAll(draftCollections);editMode=false;originalLocation=location;originalReadOn=readOn;originalTitle=draftTitle;originalAuthor=draftAuthor;notice="Изменения сохранены";editor();}else if(continuous){isbn=null;startScan();}else{finish();}
+            else if(editing){originalCollections.clear();originalCollections.addAll(draftCollections);originalTypeId=draftTypeId;originalReadingStatus=readingStatus;editMode=false;originalLocation=location;originalReadOn=readOn;originalTitle=draftTitle;originalAuthor=draftAuthor;notice="Изменения сохранены";editor();}else if(continuous){isbn=null;startScan();}else{finish();}
         });}catch(Exception e){runOnUiThread(()->{if(active(token)){busy=false;lookupEntry=false;notice="Не удалось сохранить книгу. Проверьте свободное место.";editor();}});}});
     }
     private void leave(){
@@ -402,12 +413,14 @@ public final class AddBookActivity extends ComponentActivity {
         if(busy){new android.app.AlertDialog.Builder(this).setMessage("Вернуться в библиотеку? Текущая операция может ещё выполняться.").setNegativeButton("Остаться",null).setPositiveButton("Вернуться",(d,w)->{++request;finish();}).show();return;}
         capture();
         if(editing && (editMode||duplicateCoverOffer)){
-            if(!draftTitle.equals(originalTitle)||!draftAuthor.equals(originalAuthor)||!readOn.equals(originalReadOn)||location!=originalLocation||!draftCollections.equals(originalCollections)||draftCoverPath!=null)new android.app.AlertDialog.Builder(this).setMessage("Отменить изменения карточки?").setNegativeButton("Продолжить",null).setPositiveButton("Отменить",(d,w)->cancelEdit()).show();
+            if(!draftTitle.equals(originalTitle)||!draftAuthor.equals(originalAuthor)||!readOn.equals(originalReadOn)||location!=originalLocation||readingStatus!=originalReadingStatus||!java.util.Objects.equals(draftTypeId,originalTypeId)||!draftCollections.equals(originalCollections)||draftCoverPath!=null)new android.app.AlertDialog.Builder(this).setMessage("Отменить изменения карточки?").setNegativeButton("Продолжить",null).setPositiveButton("Отменить",(d,w)->cancelEdit()).show();
             else cancelEdit();
             return;
         }
         if(isbn!=null&&!draftTitle.isEmpty()&&!editing){new android.app.AlertDialog.Builder(this).setMessage("Выйти без сохранения карточки?").setNegativeButton("Остаться",null).setPositiveButton("Выйти",(d,w)->finish()).show();}else finish();
     }
+    private void updateTypeRow(Ui.PropertyRow row){Long selected=draftTypeId;if(selected==null){row.setValue("Без типа");row.setIcon("tag",Ui.MUTED);return;}app.io.execute(()->{BookType type=app.store.bookType(selected);runOnUiThread(()->{if(!isDestroyed()&&row.isAttachedToWindow()){row.setValue(type==null?"Без типа":type.name);row.setIcon(type==null?"tag":type.icon,type==null?Ui.MUTED:type.color);}});});}
+    private void chooseType(){capture();BookTypeUi.choose(this,draftTypeId,id->{draftTypeId=id;editor();},()->{reopenTypePicker=true;typeEditor.launch(new Intent(this,BookTypeEditorActivity.class));});}
     private void chooseReadDate(){
         capture();java.util.Calendar c=java.util.Calendar.getInstance();
         if(!readOn.isEmpty())c.set(Integer.parseInt(readOn.substring(0,4)),readOn.length()>=7?Integer.parseInt(readOn.substring(5,7))-1:0,readOn.length()==10?Integer.parseInt(readOn.substring(8)):1);
@@ -445,7 +458,7 @@ public final class AddBookActivity extends ComponentActivity {
                 catch(Exception e){runOnUiThread(()->{if(active(token)){busy=false;editor();toast("Не удалось удалить книгу. Попробуйте ещё раз.");}});}});
             }).show();
     }
-    private void cancelEdit(){clearDraftCover();if(duplicateCoverOffer){finish();return;}draftCollections.clear();draftCollections.addAll(originalCollections);location=originalLocation;readOn=originalReadOn;draftTitle=originalTitle;draftAuthor=originalAuthor;editMode=false;editor();}
+    private void cancelEdit(){clearDraftCover();if(duplicateCoverOffer){finish();return;}draftCollections.clear();draftCollections.addAll(originalCollections);draftTypeId=originalTypeId;readingStatus=originalReadingStatus;location=originalLocation;readOn=originalReadOn;draftTitle=originalTitle;draftAuthor=originalAuthor;editMode=false;editor();}
     private void startCoverScan(){
         if(isbn==null||busy)return;
         capture();scanCoverBook=isbn;pendingScanUri=null;

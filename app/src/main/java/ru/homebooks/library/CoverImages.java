@@ -7,11 +7,16 @@ import android.graphics.Matrix;
 import android.net.Uri;
 import androidx.exifinterface.media.ExifInterface;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
 /** Copies a picked image into app storage without retaining access to the gallery. */
 final class CoverImages {
+    static Bitmap thumbnail(File file,int target){
+        BitmapFactory.Options options=new BitmapFactory.Options();options.inJustDecodeBounds=true;BitmapFactory.decodeFile(file.getAbsolutePath(),options);if(options.outWidth<=0||options.outHeight<=0)return null;
+        options.inSampleSize=1;while(Math.max(options.outWidth,options.outHeight)/options.inSampleSize>target*2)options.inSampleSize*=2;options.inJustDecodeBounds=false;options.inPreferredConfig=Bitmap.Config.RGB_565;return BitmapFactory.decodeFile(file.getAbsolutePath(),options);
+    }
     static byte[] read(ContentResolver resolver, Uri uri) throws IOException {
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;

@@ -9,6 +9,7 @@ import java.util.*;
 final class CoverLoader {
     interface Lookup {byte[] find(String isbn);default byte[] find(Book book){return find(book.isbn);}}
     final MutableLiveData<String> progress=new MutableLiveData<>("");
+    final MutableLiveData<String> changedCover=new MutableLiveData<>();
     static final class State {
         final boolean running,cancelled;
         final int checked,total,saved,missing;
@@ -55,7 +56,7 @@ final class CoverLoader {
                             if(!active(token)||app.store.find(id)==null||app.store.cover(id).isFile())return false;
                             app.store.saveCover(id,cover);saved++;pending.remove(id);checked++;persist();return true;
                         }
-                    }).get();
+                    }).get();if(found){String changed=id;main.post(()->changedCover.setValue(changed));}
                 }
             }catch(Exception e){unavailable=true;}
             synchronized(this){if(!active(token))return;if(!found){if(unavailable)missing++;pending.remove(id);checked++;persist();}}

@@ -28,6 +28,13 @@ public class LibraryBackupTest {
             assertArrayEquals(image,java.nio.file.Files.readAllBytes(archive.cover(isbn).toPath()));
         }
     }
+    @Test public void roundTripPreservesBookTypes()throws Exception{
+        Book book=new Book(isbn,"Книга","",1);BookType type=new BookType(7,"Программирование","code",0xFF648499,Collections.singletonList(isbn));
+        ByteArrayOutputStream out=new ByteArrayOutputStream();LibraryBackup.write(out,Collections.singletonList(book),code->new File(temp.getRoot(),"absent"),Collections.emptyList(),Collections.singletonList(type));
+        try(LibraryBackup.Archive archive=LibraryBackup.read(new ByteArrayInputStream(out.toByteArray()),temp.getRoot())){
+            assertEquals(1,archive.bookTypes.size());BookType restored=archive.bookTypes.get(0);assertEquals(type.name,restored.name);assertEquals(type.icon,restored.icon);assertEquals(type.color,restored.color);assertEquals(Collections.singletonList(isbn),restored.bookIds);
+        }
+    }
     @Test public void emptyLibraryAndMissingCoverAreSupported()throws Exception{
         for(List<Book> books:Arrays.asList(Collections.<Book>emptyList(),Collections.singletonList(new Book(isbn,"Книга","",0)))){
             ByteArrayOutputStream out=new ByteArrayOutputStream();LibraryBackup.write(out,books,code->new File(temp.getRoot(),"absent"));

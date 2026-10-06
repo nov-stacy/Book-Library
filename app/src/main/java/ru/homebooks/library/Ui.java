@@ -54,6 +54,7 @@ final class Ui {
         final String label;
         PropertyRow(Context c,String label,String value,int color){super(c);this.label=label;valueView=text(c,value,15);valueView.setTextColor(color);}
         void setValue(String value){valueView.setText(value);setContentDescription(label+": "+value+". Изменить");}
+        void setIcon(String icon,int color){Symbol symbol=new Symbol(icon,color);symbol.setBounds(0,0,dp(getContext(),16),dp(getContext(),16));valueView.setCompoundDrawablesRelative(symbol,null,null,null);valueView.setCompoundDrawablePadding(dp(getContext(),7));}
     }
     static PropertyRow property(Context c,String label,String value,int valueColor,Runnable click){
         PropertyRow row=new PropertyRow(c,label,value,valueColor);row.setGravity(Gravity.CENTER_VERTICAL);row.setMinimumHeight(dp(c,56));row.setPadding(dp(c,16),dp(c,12),dp(c,16),dp(c,12));
@@ -163,6 +164,34 @@ final class Ui {
                     for (int i=0;i<4;i++) {c.save();c.rotate(i*90,12,12);path.reset();path.moveTo(3,8);path.lineTo(3,3);path.lineTo(8,3);c.drawPath(path,p);c.restore();}
                     for(int x=7;x<=17;x+=3)c.drawLine(x,8,x,16,p); break;
                 case "search": c.drawCircle(10,10,6,p);c.drawLine(15,15,21,21,p);break;
+                case "code": path.moveTo(8,7);path.lineTo(3,12);path.lineTo(8,17);path.moveTo(16,7);path.lineTo(21,12);path.lineTo(16,17);path.moveTo(14,4);path.lineTo(10,20);c.drawPath(path,p);break;
+                case "sparkles": c.drawLine(12,2,12,10,p);c.drawLine(8,6,16,6,p);c.drawLine(6,13,6,20,p);c.drawLine(2,16.5f,10,16.5f,p);c.drawLine(18,10,18,15,p);c.drawLine(15.5f,12.5f,20.5f,12.5f,p);break;
+                case "pencil": c.save();c.rotate(-45,12,12);c.drawRoundRect(9,2,15,19,2,2,p);path.moveTo(9,19);path.lineTo(12,23);path.lineTo(15,19);c.drawPath(path,p);c.restore();break;
+                case "scissors": c.drawCircle(6,7,3,p);c.drawCircle(6,17,3,p);c.drawLine(8.5f,9,21,18,p);c.drawLine(8.5f,15,21,6,p);break;
+                case "game": c.drawRoundRect(3,7,21,18,4,4,p);c.drawLine(8,10,8,15,p);c.drawLine(5.5f,12.5f,10.5f,12.5f,p);c.drawCircle(16,11,1,p);c.drawCircle(18,14,1,p);break;
+                case "book-open": path.moveTo(3,5);path.quadTo(8,4,12,8);path.quadTo(16,4,21,5);path.lineTo(21,19);path.quadTo(16,18,12,21);path.quadTo(8,18,3,19);path.close();c.drawPath(path,p);c.drawLine(12,8,12,21,p);break;
+                case "images": c.drawRoundRect(5,3,21,18,2,2,p);c.drawCircle(10,8,1.5f,p);path.moveTo(5,16);path.lineTo(11,10);path.lineTo(15,14);path.lineTo(18,11);path.lineTo(21,14);path.moveTo(3,7);path.lineTo(3,21);path.lineTo(18,21);c.drawPath(path,p);break;
+                case "palette": c.drawOval(3,3,21,20,p);c.drawCircle(8,8,1,p);c.drawCircle(13,6,1,p);c.drawCircle(17,9,1,p);c.drawCircle(8,14,1,p);c.drawOval(13,13,19,18,p);break;
+                case "library": c.drawRect(4,4,8,20,p);c.drawRect(10,3,14,20,p);c.save();c.rotate(-10,18,12);c.drawRect(16,4,20,20,p);c.restore();break;
+                case "tag": path.moveTo(3,5);path.lineTo(13,5);path.lineTo(21,13);path.lineTo(13,21);path.lineTo(3,11);path.close();c.drawPath(path,p);c.drawCircle(8,10,1.5f,p);break;
+                case "brush": c.drawLine(8,17,18,4,p);c.drawRoundRect(15,3,20,8,2,2,p);path.moveTo(9,15);path.quadTo(3,15,4,21);path.quadTo(10,22,11,17);c.drawPath(path,p);break;
+                case "camera": c.drawRoundRect(3,7,21,20,2,2,p);path.moveTo(8,7);path.lineTo(10,4);path.lineTo(15,4);path.lineTo(17,7);c.drawPath(path,p);c.drawCircle(12,13,4,p);break;
+                case "film": c.drawRoundRect(3,4,21,20,2,2,p);for(int y=7;y<=17;y+=5){c.drawCircle(6,y,1,p);c.drawCircle(18,y,1,p);}c.drawLine(9,4,9,20,p);c.drawLine(15,4,15,20,p);break;
+                case "music": c.drawLine(9,5,9,17,p);c.drawLine(9,5,19,3,p);c.drawLine(19,3,19,15,p);c.drawCircle(6,18,3,p);c.drawCircle(16,16,3,p);break;
+                case "heart": path.moveTo(12,21);path.cubicTo(9,17,3,14,3,8);path.cubicTo(3,3,10,2,12,7);path.cubicTo(14,2,21,3,21,8);path.cubicTo(21,14,15,17,12,21);c.drawPath(path,p);break;
+                case "star": for(int i=0;i<10;i++){double a=-Math.PI/2+i*Math.PI/5;float radius=i%2==0?9:4;float px=12+(float)Math.cos(a)*radius,py=12+(float)Math.sin(a)*radius;if(i==0)path.moveTo(px,py);else path.lineTo(px,py);}path.close();c.drawPath(path,p);break;
+                case "map": path.moveTo(3,6);path.lineTo(9,3);path.lineTo(15,6);path.lineTo(21,3);path.lineTo(21,18);path.lineTo(15,21);path.lineTo(9,18);path.lineTo(3,21);path.close();c.drawPath(path,p);c.drawLine(9,3,9,18,p);c.drawLine(15,6,15,21,p);break;
+                case "compass": c.drawCircle(12,12,9,p);path.moveTo(15,7);path.lineTo(13,13);path.lineTo(7,17);path.lineTo(10,10);path.close();c.drawPath(path,p);break;
+                case "cooking": c.drawRoundRect(4,9,20,19,2,2,p);c.drawLine(2,9,22,9,p);c.drawLine(9,5,15,5,p);c.drawLine(6,22,18,22,p);break;
+                case "leaf": path.moveTo(4,20);path.cubicTo(4,8,10,3,21,3);path.cubicTo(21,14,16,20,4,20);c.drawPath(path,p);c.drawLine(4,20,17,7,p);break;
+                case "flower": c.drawCircle(12,12,2,p);for(int i=0;i<6;i++){c.save();c.rotate(i*60,12,12);c.drawOval(10,3,14,10,p);c.restore();}c.drawLine(12,14,12,22,p);break;
+                case "cat": case "dog": path.moveTo(5,9);path.lineTo(5,4);path.lineTo(9,7);path.quadTo(12,5,15,7);path.lineTo(19,4);path.lineTo(19,14);path.quadTo(18,21,12,21);path.quadTo(6,21,5,14);path.close();c.drawPath(path,p);c.drawCircle(9,12,1,p);c.drawCircle(15,12,1,p);c.drawLine(10,17,14,17,p);break;
+                case "sport": c.drawLine(7,12,17,12,p);c.drawLine(5,8,5,16,p);c.drawLine(3,9,3,15,p);c.drawLine(19,8,19,16,p);c.drawLine(21,9,21,15,p);break;
+                case "puzzle": path.moveTo(4,4);path.lineTo(10,4);path.quadTo(8,9,12,9);path.quadTo(16,9,14,4);path.lineTo(20,4);path.lineTo(20,10);path.quadTo(15,8,15,12);path.quadTo(15,16,20,14);path.lineTo(20,20);path.lineTo(4,20);path.close();c.drawPath(path,p);break;
+                case "science": path.moveTo(9,3);path.lineTo(15,3);path.moveTo(10,3);path.lineTo(10,10);path.lineTo(5,20);path.lineTo(19,20);path.lineTo(14,10);path.lineTo(14,3);path.moveTo(7,16);path.lineTo(17,16);c.drawPath(path,p);break;
+                case "history": c.drawCircle(12,12,9,p);c.drawLine(12,6,12,12,p);c.drawLine(12,12,17,15,p);break;
+                case "graduation": path.moveTo(2,9);path.lineTo(12,4);path.lineTo(22,9);path.lineTo(12,14);path.close();path.moveTo(6,11);path.lineTo(6,17);path.quadTo(12,21,18,17);path.lineTo(18,11);c.drawPath(path,p);break;
+                case "tools": c.drawCircle(7,17,2,p);path.moveTo(8,15);path.lineTo(17,6);path.quadTo(15,2,20,3);path.quadTo(21,8,17,7);path.lineTo(9,18);c.drawPath(path,p);break;
                 default: c.drawRoundRect(4,3,20,21,2,2,p);c.drawLine(8,3,8,21,p);c.drawLine(11,8,16,8,p);c.drawLine(11,11,16,11,p);
             } c.restore();
         }

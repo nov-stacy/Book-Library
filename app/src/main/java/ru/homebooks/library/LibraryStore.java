@@ -11,7 +11,7 @@ public final class LibraryStore extends SQLiteOpenHelper {
     private final File covers;
     public LibraryStore(Context context) { this(context, "library.db"); }
     LibraryStore(Context context, String databaseName) {
-        super(context, databaseName, null, 7);
+        super(context, databaseName, null, 8);
         covers = new File(context.getFilesDir(), "covers");
     }
     @Override public void onConfigure(SQLiteDatabase db){db.setForeignKeyConstraintsEnabled(true);}
@@ -19,6 +19,7 @@ public final class LibraryStore extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE books (isbn TEXT PRIMARY KEY NOT NULL, title TEXT NOT NULL, author TEXT NOT NULL, added_at INTEGER NOT NULL, reading_status INTEGER NOT NULL DEFAULT 0, location INTEGER NOT NULL DEFAULT 0, read_on TEXT NOT NULL DEFAULT '', isbn_value TEXT NOT NULL DEFAULT '')");
         createCollections(db);
         migrateSingleCollection(db);
+        createBookTypes(db);
     }
     @Override public void onUpgrade(SQLiteDatabase db, int from, int to) {
         if(from<2)db.execSQL("ALTER TABLE books ADD COLUMN reading_status INTEGER NOT NULL DEFAULT 0");
@@ -27,7 +28,8 @@ public final class LibraryStore extends SQLiteOpenHelper {
         if(from<5)db.execSQL("ALTER TABLE books ADD COLUMN read_on TEXT NOT NULL DEFAULT ''");
         if(from<6){db.execSQL("ALTER TABLE books ADD COLUMN isbn_value TEXT NOT NULL DEFAULT ''");db.execSQL("UPDATE books SET isbn_value=isbn WHERE isbn NOT LIKE 'local-%'");}
         if(from<7)migrateSingleCollection(db);
-        if(to>7)throw new IllegalStateException("Migration required: " + from + " → " + to);
+        if(from<8)createBookTypes(db);
+        if(to>8)throw new IllegalStateException("Migration required: " + from + " → " + to);
     }
     private void createCollections(SQLiteDatabase db){
         db.execSQL("CREATE TABLE collections (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, name_key TEXT NOT NULL UNIQUE)");
@@ -40,6 +42,13 @@ public final class LibraryStore extends SQLiteOpenHelper {
         db.execSQL("INSERT INTO collection_choices SELECT collection_id,isbn FROM collection_books WHERE isbn IN (SELECT isbn FROM collection_books GROUP BY isbn HAVING COUNT(*)>1)");
         db.execSQL("DELETE FROM collection_books WHERE isbn IN (SELECT isbn FROM collection_choices)");
         db.execSQL("CREATE UNIQUE INDEX one_collection_per_book ON collection_books(isbn)");
+    }
+    private void createBookTypes(SQLiteDatabase db){
+        db.execSQL("CREATE TABLE book_types (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, name_key TEXT NOT NULL UNIQUE, icon TEXT NOT NULL, color INTEGER NOT NULL UNIQUE)");
+        db.execSQL("CREATE TABLE book_type_books (type_id INTEGER NOT NULL REFERENCES book_types(id) ON DELETE CASCADE, isbn TEXT NOT NULL UNIQUE REFERENCES books(isbn) ON DELETE CASCADE, PRIMARY KEY(type_id,isbn))");
+        for(int i=0;i<BookType.DEFAULTS.length;i++){
+            ContentValues values=new ContentValues();values.put("name",BookType.DEFAULTS[i][0]);values.put("name_key",BookType.DEFAULTS[i][0].toLowerCase(Locale.ROOT));values.put("icon",BookType.DEFAULTS[i][1]);values.put("color",BookType.PALETTE[i]);db.insertOrThrow("book_types",null,values);
+        }
     }
     public Map<String,String> collectionLabels(){
         Map<String,String> labels=new HashMap<>();
@@ -104,6 +113,61 @@ public final class LibraryStore extends SQLiteOpenHelper {
     public void removeFromCollection(long id,Collection<String> isbns){
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{for(String isbn:isbns){db.delete("collection_books","collection_id=? AND isbn=?",new String[]{Long.toString(id),isbn});db.delete("collection_choices","collection_id=? AND isbn=?",new String[]{Long.toString(id),isbn});}db.setTransactionSuccessful();}finally{db.endTransaction();}
     }
+    private String validBookTypeName(String name){
+        String value=name.trim();if(value.isEmpty()||value.length()>80)throw new IllegalArgumentException("Название должно содержать от 1 до 80 символов");return value;
+    }
+    public long createBookType(String name,String icon,int color){
+        name=validBookTypeName(name);if(!BookType.validIcon(icon))throw new IllegalArgumentException("Неизвестная иконка");
+        ContentValues values=new ContentValues();values.put("name",name);values.put("name_key",name.toLowerCase(Locale.ROOT));values.put("icon",icon);values.put("color",BookType.opaque(color));
+        return getWritableDatabase().insertOrThrow("book_types",null,values);
+    }
+    public void updateBookType(long id,String name,String icon,int color){
+        name=validBookTypeName(name);if(!BookType.validIcon(icon))throw new IllegalArgumentException("Неизвестная иконка");
+        ContentValues values=new ContentValues();values.put("name",name);values.put("name_key",name.toLowerCase(Locale.ROOT));values.put("icon",icon);values.put("color",BookType.opaque(color));
+        if(getWritableDatabase().update("book_types",values,"id=?",new String[]{Long.toString(id)})!=1)throw new IllegalStateException("Тип удалён");
+    }
+    public void deleteBookType(long id){getWritableDatabase().delete("book_types","id=?",new String[]{Long.toString(id)});}
+    public List<BookType> bookTypes(){
+        Map<Long,BookType> result=new LinkedHashMap<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT t.id,t.name,t.icon,t.color,b.isbn FROM book_types t LEFT JOIN book_type_books b ON b.type_id=t.id ORDER BY t.name_key,b.isbn",null)){
+            while(c.moveToNext()){long id=c.getLong(0);BookType type=result.get(id);if(type==null){type=new BookType(id,c.getString(1),c.getString(2),c.getInt(3),Collections.emptyList());result.put(id,type);}if(!c.isNull(4))type.bookIds.add(c.getString(4));}
+        }return new ArrayList<>(result.values());
+    }
+    public BookType bookType(long id){for(BookType type:bookTypes())if(type.id==id)return type;return null;}
+    public List<String> bookTypeBookIds(long id){
+        List<String> result=new ArrayList<>();try(Cursor c=getReadableDatabase().rawQuery("SELECT isbn FROM book_type_books WHERE type_id=? ORDER BY isbn",new String[]{Long.toString(id)})){while(c.moveToNext())result.add(c.getString(0));}return result;
+    }
+    public Map<String,BookType> bookTypeLabels(){
+        Map<String,BookType> result=new HashMap<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT links.isbn,t.id,t.name,t.icon,t.color FROM book_type_books links JOIN book_types t ON t.id=links.type_id",null)){
+            while(c.moveToNext())result.put(c.getString(0),new BookType(c.getLong(1),c.getString(2),c.getString(3),c.getInt(4),Collections.emptyList()));
+        }return result;
+    }
+    public Long bookTypeIdForBook(String isbn){
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT type_id FROM book_type_books WHERE isbn=?",new String[]{isbn})){return c.moveToFirst()?c.getLong(0):null;}
+    }
+    public Set<String> typedBookIds(){
+        Set<String> result=new HashSet<>();try(Cursor c=getReadableDatabase().rawQuery("SELECT isbn FROM book_type_books",null)){while(c.moveToNext())result.add(c.getString(0));}return result;
+    }
+    public void setBookType(String isbn,Long typeId){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            if(find(isbn)==null)throw new IllegalStateException("Книга удалена");
+            db.delete("book_type_books","isbn=?",new String[]{isbn});
+            if(typeId!=null){ContentValues values=new ContentValues();values.put("type_id",typeId);values.put("isbn",isbn);db.insertOrThrow("book_type_books",null,values);}
+            db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public void setBookTypeBooks(long typeId,Collection<String> bookIds){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{
+            if(bookType(typeId)==null)throw new IllegalStateException("Тип удалён");
+            db.delete("book_type_books","type_id=?",new String[]{Long.toString(typeId)});
+            for(String isbn:new LinkedHashSet<>(bookIds)){db.delete("book_type_books","isbn=?",new String[]{isbn});ContentValues values=new ContentValues();values.put("type_id",typeId);values.put("isbn",isbn);db.insertOrThrow("book_type_books",null,values);}
+            db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public void saveWithCollectionsAndType(Book book,Collection<Long> collectionIds,Long typeId){
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();try{saveEdited(book);setBookCollections(book.id,collectionIds);setBookType(book.id,typeId);db.setTransactionSuccessful();}finally{db.endTransaction();}
+    }
     private void mergeCollections(List<BookCollection> groups,Set<String> preserve){
         for(BookCollection group:groups){
             long id=-1;for(BookCollection current:collections())if(current.name.toLowerCase(Locale.ROOT).equals(group.name.toLowerCase(Locale.ROOT))){id=current.id;break;}
@@ -114,6 +178,13 @@ public final class LibraryStore extends SQLiteOpenHelper {
                 ContentValues values=new ContentValues();values.put("collection_id",id);values.put("isbn",code);
                 db.insertWithOnConflict("collection_choices",null,values,SQLiteDatabase.CONFLICT_IGNORE);
             }
+        }
+    }
+    private void mergeBookTypes(List<BookType> incoming,Set<String> preserve){
+        for(BookType item:incoming){
+            BookType target=null;for(BookType current:bookTypes())if(current.name.equalsIgnoreCase(item.name)){target=current;break;}
+            if(target==null){int color=item.color;Set<Integer> used=new HashSet<>();for(BookType current:bookTypes())used.add(current.color);if(used.contains(color)){int[] suggestions=BookType.suggestions(bookTypes(),1);if(suggestions.length==0)continue;color=suggestions[0];}long id=createBookType(item.name,BookType.validIcon(item.icon)?item.icon:"tag",color);target=bookType(id);}
+            for(String isbn:item.bookIds)if(!preserve.contains(isbn)&&find(isbn)!=null)setBookType(isbn,target.id);
         }
     }
     public List<Book> all() {
@@ -186,7 +257,7 @@ public final class LibraryStore extends SQLiteOpenHelper {
     }
     public int restoreMissing(LibraryBackup.Archive archive,RestoreProgress progress) throws IOException {
         SQLiteDatabase db=getWritableDatabase();List<File> written=new ArrayList<>();int added=0;boolean committed=false,successful=false;
-        int done=0,total=archive.books.size()+archive.collections.size()+1;
+        int done=0,total=archive.books.size()+archive.collections.size()+archive.bookTypes.size()+1;
         progress.update(0,total,"Книги: 0 из "+archive.books.size());
         db.beginTransaction();
         try {
@@ -206,12 +277,14 @@ public final class LibraryStore extends SQLiteOpenHelper {
                 }
                 done++;progress.update(done,total,"Книги: "+done+" из "+archive.books.size());
             }
-            Set<String> preserve=collectedBookIds();
+            Set<String> preserve=collectedBookIds(),preserveTypes=typedBookIds();
             int groupsDone=0;
             for(BookCollection group:archive.collections){
                 mergeCollections(Collections.singletonList(group),preserve);groupsDone++;
                 progress.update(++done,total,"Коллекции: "+groupsDone+" из "+archive.collections.size());
             }
+            int typesDone=0;
+            for(BookType type:archive.bookTypes){mergeBookTypes(Collections.singletonList(type),preserveTypes);typesDone++;progress.update(++done,total,"Типы книг: "+typesDone+" из "+archive.bookTypes.size());}
             db.execSQL("INSERT OR IGNORE INTO collection_books SELECT collection_id,isbn FROM collection_choices WHERE isbn IN (SELECT isbn FROM collection_choices GROUP BY isbn HAVING COUNT(*)=1)");
             db.execSQL("DELETE FROM collection_choices WHERE isbn IN (SELECT isbn FROM collection_books)");
             progress.update(done,total,"Завершаем сохранение…");

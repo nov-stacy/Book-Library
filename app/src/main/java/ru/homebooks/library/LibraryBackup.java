@@ -14,8 +14,10 @@ final class LibraryBackup {
         final List<Book> books;
         final File directory;
         final List<BookCollection> collections;
+        final List<BookType> bookTypes;
         Archive(List<Book> books,File directory){this(books,directory,Collections.emptyList());}
-        Archive(List<Book> books,File directory,List<BookCollection> collections){this.books=books;this.directory=directory;this.collections=collections;}
+        Archive(List<Book> books,File directory,List<BookCollection> collections){this(books,directory,collections,Collections.emptyList());}
+        Archive(List<Book> books,File directory,List<BookCollection> collections,List<BookType> bookTypes){this.books=books;this.directory=directory;this.collections=collections;this.bookTypes=bookTypes;}
         File cover(String isbn){return new File(directory,"covers/"+isbn+".jpg");}
         public void close(){remove(directory);}
     }
@@ -23,10 +25,13 @@ final class LibraryBackup {
         write(output,books,covers,Collections.emptyList());
     }
     static void write(OutputStream output,List<Book> books,Covers covers,List<BookCollection> collections) throws IOException {
+        write(output,books,covers,collections,Collections.emptyList());
+    }
+    static void write(OutputStream output,List<Book> books,Covers covers,List<BookCollection> collections,List<BookType> bookTypes) throws IOException {
         if(books.size()>50000)throw new IOException("Слишком много книг в копии");
         try(ZipOutputStream zip=new ZipOutputStream(new BufferedOutputStream(output))){
             JSONObject manifest=new JSONObject();JSONArray rows=new JSONArray();
-            manifest.put("format","home-library-backup");manifest.put("version",4);
+            manifest.put("format","home-library-backup");manifest.put("version",5);
             manifest.put("createdAt",System.currentTimeMillis());
             for(Book b:books){
                 JSONObject row=new JSONObject();row.put("isbn",b.isbn);row.put("id",b.id);row.put("title",b.title);row.put("author",b.author);
@@ -34,6 +39,7 @@ final class LibraryBackup {
             }
             manifest.put("books",rows);
             JSONArray groups=new JSONArray();for(BookCollection group:collections){JSONObject item=new JSONObject();item.put("name",group.name);item.put("isbns",new JSONArray(group.isbns));groups.put(item);}manifest.put("collections",groups);
+            JSONArray types=new JSONArray();for(BookType type:bookTypes){JSONObject item=new JSONObject();item.put("name",type.name);item.put("icon",type.icon);item.put("color",BookType.hex(type.color));item.put("isbns",new JSONArray(type.bookIds));types.put(item);}manifest.put("bookTypes",types);
             byte[] metadata=manifest.toString().getBytes(StandardCharsets.UTF_8);
             StringWriter csv=new StringWriter();Csv.write(csv,books);byte[] table=csv.toString().getBytes(StandardCharsets.UTF_8);
             if(metadata.length>MAX_ENTRY||table.length>MAX_ENTRY)throw new IOException("Превышен допустимый размер копии");
@@ -70,7 +76,7 @@ final class LibraryBackup {
             if(!metadata.isFile())throw new IOException("В файле нет данных резервной копии");
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(InputStream in=new FileInputStream(metadata)){copy(in,bytes,MAX_ENTRY);}
             JSONObject manifest=new JSONObject(new String(bytes.toByteArray(),StandardCharsets.UTF_8));
-            if(!"home-library-backup".equals(manifest.getString("format"))||(manifest.getInt("version")!=1&&manifest.getInt("version")!=2&&manifest.getInt("version")!=3&&manifest.getInt("version")!=4))throw new IOException("Этот формат копии не поддерживается");
+            if(!"home-library-backup".equals(manifest.getString("format"))||(manifest.getInt("version")<1||manifest.getInt("version")>5))throw new IOException("Этот формат копии не поддерживается");
             JSONArray rows=manifest.getJSONArray("books");if(rows.length()>50000)throw new IOException("Слишком много книг в копии");
             List<Book> books=new ArrayList<>();Set<String> codes=new HashSet<>();
             for(int i=0;i<rows.length();i++){
@@ -95,7 +101,18 @@ final class LibraryBackup {
                     groups.add(new BookCollection(0,name,new ArrayList<>(isbns)));
                 }
             }
-            valid=true;return new Archive(books,directory,groups);
+            List<BookType> types=new ArrayList<>();Set<String> typeNames=new HashSet<>();Set<Integer> typeColors=new HashSet<>();Set<String> typedBooks=new HashSet<>();
+            if(manifest.getInt("version")>=5){
+                JSONArray data=manifest.getJSONArray("bookTypes");if(data.length()>10000)throw new IOException("Слишком много типов книг");
+                for(int i=0;i<data.length();i++){
+                    JSONObject item=data.getJSONObject(i);String name=item.getString("name").trim(),icon=item.getString("icon");int color;
+                    try{color=BookType.parseColor(item.getString("color"));}catch(IllegalArgumentException e){throw new IOException("Некорректный цвет типа книги");}
+                    if(name.isEmpty()||name.length()>80||!typeNames.add(name.toLowerCase(Locale.ROOT))||!BookType.validIcon(icon)||!typeColors.add(color))throw new IOException("Некорректный тип книги");
+                    JSONArray members=item.getJSONArray("isbns");Set<String> ids=new LinkedHashSet<>();for(int j=0;j<members.length();j++){String id=members.getString(j);if(!codes.contains(id)||!typedBooks.add(id))throw new IOException("Некорректная книга в типе");ids.add(id);}
+                    types.add(new BookType(0,name,icon,color,new ArrayList<>(ids)));
+                }
+            }
+            valid=true;return new Archive(books,directory,groups,types);
         }catch(JSONException e){throw new IOException("Повреждены данные резервной копии",e);}
         finally{if(!valid)remove(directory);}
     }
