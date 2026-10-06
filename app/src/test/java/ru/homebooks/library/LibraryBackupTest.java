@@ -35,6 +35,11 @@ public class LibraryBackupTest {
             assertEquals(1,archive.bookTypes.size());BookType restored=archive.bookTypes.get(0);assertEquals(type.name,restored.name);assertEquals(type.icon,restored.icon);assertEquals(type.color,restored.color);assertEquals(Collections.singletonList(isbn),restored.bookIds);
         }
     }
+    @Test public void roundTripPreservesReadingChallenges()throws Exception{
+        Map<Integer,Integer> goals=new LinkedHashMap<>();goals.put(2026,30);goals.put(2025,24);
+        ByteArrayOutputStream out=new ByteArrayOutputStream();LibraryBackup.write(out,Collections.emptyList(),code->new File(temp.getRoot(),"absent"),Collections.emptyList(),Collections.emptyList(),goals);
+        try(LibraryBackup.Archive archive=LibraryBackup.read(new ByteArrayInputStream(out.toByteArray()),temp.getRoot())){assertEquals(goals,archive.readingChallenges);}
+    }
     @Test public void emptyLibraryAndMissingCoverAreSupported()throws Exception{
         for(List<Book> books:Arrays.asList(Collections.<Book>emptyList(),Collections.singletonList(new Book(isbn,"Книга","",0)))){
             ByteArrayOutputStream out=new ByteArrayOutputStream();LibraryBackup.write(out,books,code->new File(temp.getRoot(),"absent"));

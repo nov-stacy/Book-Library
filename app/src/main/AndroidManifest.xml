@@ -14,6 +14,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ReadActivity" android:exported="false" />
+        <activity android:name=".ReadingStatsActivity" android:exported="false" />
         <activity android:name=".CollectionsActivity" android:exported="false" />
         <activity android:name=".BookTypesActivity" android:exported="false" />
         <activity android:name=".BookTypeEditorActivity" android:exported="false" />

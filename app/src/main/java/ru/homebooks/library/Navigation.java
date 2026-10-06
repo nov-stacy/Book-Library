@@ -16,9 +16,9 @@ final class Navigation {
         Button books=item(activity,"Книги",()->open(activity,drawer,MainActivity.class));
         Button groups=item(activity,"Коллекции",()->open(activity,drawer,CollectionsActivity.class));
         Button types=item(activity,"Типы книг",()->open(activity,drawer,BookTypesActivity.class));
-        Button read=item(activity,"Прочитано",()->open(activity,drawer,ReadActivity.class));
+        Button read=item(activity,"Чтение",()->open(activity,drawer,ReadingStatsActivity.class));
         Button settings=item(activity,"Настройки",()->open(activity,drawer,SettingsActivity.class));
-        Button active=activity instanceof ReadActivity?read:activity instanceof SettingsActivity?settings:activity instanceof BookTypesActivity?types:collections?groups:books;
+        Button active=activity instanceof ReadActivity||activity instanceof ReadingStatsActivity?read:activity instanceof SettingsActivity?settings:activity instanceof BookTypesActivity?types:collections?groups:books;
         active.setTextColor(Ui.GREEN);active.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22735081),Ui.round(Ui.TINT,activity),null));
         for(Button button:new Button[]{books,groups,types,read}){panel.addView(button,new LinearLayout.LayoutParams(-1,-2));Ui.gap(panel,8);}
         Ui.gap(panel,16);Ui.divider(panel);Ui.gap(panel,16);panel.addView(settings,new LinearLayout.LayoutParams(-1,-2));

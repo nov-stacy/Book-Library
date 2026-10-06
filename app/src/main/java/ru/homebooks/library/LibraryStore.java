@@ -11,7 +11,7 @@ public final class LibraryStore extends SQLiteOpenHelper {
     private final File covers;
     public LibraryStore(Context context) { this(context, "library.db"); }
     LibraryStore(Context context, String databaseName) {
-        super(context, databaseName, null, 8);
+        super(context, databaseName, null, 9);
         covers = new File(context.getFilesDir(), "covers");
     }
     @Override public void onConfigure(SQLiteDatabase db){db.setForeignKeyConstraintsEnabled(true);}
@@ -20,6 +20,7 @@ public final class LibraryStore extends SQLiteOpenHelper {
         createCollections(db);
         migrateSingleCollection(db);
         createBookTypes(db);
+        createReadingChallenges(db);
     }
     @Override public void onUpgrade(SQLiteDatabase db, int from, int to) {
         if(from<2)db.execSQL("ALTER TABLE books ADD COLUMN reading_status INTEGER NOT NULL DEFAULT 0");
@@ -29,7 +30,8 @@ public final class LibraryStore extends SQLiteOpenHelper {
         if(from<6){db.execSQL("ALTER TABLE books ADD COLUMN isbn_value TEXT NOT NULL DEFAULT ''");db.execSQL("UPDATE books SET isbn_value=isbn WHERE isbn NOT LIKE 'local-%'");}
         if(from<7)migrateSingleCollection(db);
         if(from<8)createBookTypes(db);
-        if(to>8)throw new IllegalStateException("Migration required: " + from + " → " + to);
+        if(from<9)createReadingChallenges(db);
+        if(to>9)throw new IllegalStateException("Migration required: " + from + " → " + to);
     }
     private void createCollections(SQLiteDatabase db){
         db.execSQL("CREATE TABLE collections (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, name_key TEXT NOT NULL UNIQUE)");
@@ -50,6 +52,23 @@ public final class LibraryStore extends SQLiteOpenHelper {
             ContentValues values=new ContentValues();values.put("name",BookType.DEFAULTS[i][0]);values.put("name_key",BookType.DEFAULTS[i][0].toLowerCase(Locale.ROOT));values.put("icon",BookType.DEFAULTS[i][1]);values.put("color",BookType.PALETTE[i]);db.insertOrThrow("book_types",null,values);
         }
     }
+    private void createReadingChallenges(SQLiteDatabase db){
+        db.execSQL("CREATE TABLE reading_challenges (year INTEGER PRIMARY KEY NOT NULL, goal INTEGER NOT NULL CHECK(goal BETWEEN 1 AND 999))");
+    }
+    public Map<Integer,Integer> readingChallenges(){
+        Map<Integer,Integer> result=new LinkedHashMap<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT year,goal FROM reading_challenges ORDER BY year DESC",null)){while(c.moveToNext())result.put(c.getInt(0),c.getInt(1));}
+        return result;
+    }
+    public Integer readingChallenge(int year){
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT goal FROM reading_challenges WHERE year=?",new String[]{Integer.toString(year)})){return c.moveToFirst()?c.getInt(0):null;}
+    }
+    public void setReadingChallenge(int year,int goal){
+        if(year<1||year>9999||goal<1||goal>999)throw new IllegalArgumentException("Цель должна быть от 1 до 999 книг");
+        ContentValues values=new ContentValues();values.put("year",year);values.put("goal",goal);
+        getWritableDatabase().insertWithOnConflict("reading_challenges",null,values,SQLiteDatabase.CONFLICT_REPLACE);
+    }
+    public void deleteReadingChallenge(int year){getWritableDatabase().delete("reading_challenges","year=?",new String[]{Integer.toString(year)});}
     public Map<String,String> collectionLabels(){
         Map<String,String> labels=new HashMap<>();
         try(Cursor c=getReadableDatabase().rawQuery("SELECT links.isbn,c.name FROM (SELECT * FROM collection_books UNION SELECT * FROM collection_choices) links JOIN collections c ON c.id=links.collection_id ORDER BY c.name_key",null)){
@@ -257,7 +276,7 @@ public final class LibraryStore extends SQLiteOpenHelper {
     }
     public int restoreMissing(LibraryBackup.Archive archive,RestoreProgress progress) throws IOException {
         SQLiteDatabase db=getWritableDatabase();List<File> written=new ArrayList<>();int added=0;boolean committed=false,successful=false;
-        int done=0,total=archive.books.size()+archive.collections.size()+archive.bookTypes.size()+1;
+        int done=0,total=archive.books.size()+archive.collections.size()+archive.bookTypes.size()+archive.readingChallenges.size()+1;
         progress.update(0,total,"Книги: 0 из "+archive.books.size());
         db.beginTransaction();
         try {
@@ -285,6 +304,8 @@ public final class LibraryStore extends SQLiteOpenHelper {
             }
             int typesDone=0;
             for(BookType type:archive.bookTypes){mergeBookTypes(Collections.singletonList(type),preserveTypes);typesDone++;progress.update(++done,total,"Типы книг: "+typesDone+" из "+archive.bookTypes.size());}
+            int goalsDone=0;
+            for(Map.Entry<Integer,Integer> challenge:archive.readingChallenges.entrySet()){if(readingChallenge(challenge.getKey())==null)setReadingChallenge(challenge.getKey(),challenge.getValue());goalsDone++;progress.update(++done,total,"Цели чтения: "+goalsDone+" из "+archive.readingChallenges.size());}
             db.execSQL("INSERT OR IGNORE INTO collection_books SELECT collection_id,isbn FROM collection_choices WHERE isbn IN (SELECT isbn FROM collection_choices GROUP BY isbn HAVING COUNT(*)=1)");
             db.execSQL("DELETE FROM collection_choices WHERE isbn IN (SELECT isbn FROM collection_books)");
             progress.update(done,total,"Завершаем сохранение…");

@@ -8,6 +8,11 @@ import static org.junit.Assert.*;
 
 @RunWith(AndroidJUnit4.class)
 public class LibraryStoreTest {
+    @Test public void readingChallengesPersistAndCanBeRemoved(){
+        android.content.Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();String name="challenges-"+java.util.UUID.randomUUID()+".db";LibraryStore store=new LibraryStore(context,name);
+        try{store.setReadingChallenge(2026,30);store.setReadingChallenge(2025,24);assertEquals(Integer.valueOf(30),store.readingChallenge(2026));store.setReadingChallenge(2026,36);store.close();store=new LibraryStore(context,name);assertEquals(Integer.valueOf(36),store.readingChallenges().get(2026));store.deleteReadingChallenge(2026);assertNull(store.readingChallenge(2026));try{store.setReadingChallenge(2026,0);fail();}catch(IllegalArgumentException expected){}}
+        finally{store.close();context.deleteDatabase(name);}
+    }
     @Test public void bookTypesUseUniqueNamesAndColorsAndDeletionKeepsBooks(){
         android.content.Context context=InstrumentationRegistry.getInstrumentation().getTargetContext();String name="types-"+java.util.UUID.randomUUID()+".db";LibraryStore store=new LibraryStore(context,name);String id=Book.newLocalId();
         try{
