@@ -8,3 +8,12 @@ build/
 .next/
 coverage/
 *.log
+.gradle/
+local.properties
+.idea/
+*.iml
+*.apk
+*.aab
+.cxx/
+
+exports/
