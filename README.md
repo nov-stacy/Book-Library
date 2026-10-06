@@ -16,6 +16,8 @@
 - [Правила оформления интерфейса](docs/ui-style.md)
 - [Проверки на реальном устройстве](docs/device-checklist.md)
 
+Правила оформления Android-приложения: [`android-app/docs/ui-style.md`](android-app/docs/ui-style.md).
+
 ## Текущее состояние
 
 - Платформа: Android 6.0 и новее (API 23+).
