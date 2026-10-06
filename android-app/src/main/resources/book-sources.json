@@ -1,0 +1,318 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "eksmo",
+      "name": "Эксмо",
+      "adapter": "eksmo",
+      "enabled": true,
+      "prefixes": [
+        "978504",
+        "9785699"
+      ],
+      "language": "ru",
+      "base": "https://eksmo.ru",
+      "titleSearch": "/search/?q={query}",
+      "links": ".book__content",
+      "path": "/book/|/ebook/",
+      "title": "h1.book-page__card-title",
+      "author": ".book-page__card-author-link",
+      "isbn": ".book-page__copy-isbn .copy__val"
+    },
+    {
+      "id": "ast",
+      "name": "АСТ",
+      "adapter": "ast",
+      "enabled": true,
+      "prefixes": [
+        "978517"
+      ],
+      "aliases": [
+        "ОГИЗ",
+        "Бумажный фонарик"
+      ],
+      "language": "ru",
+      "base": "https://ast.ru",
+      "titleSearch": "/search/?q={query}",
+      "links": ".search-results-container a[href]",
+      "path": "/book/",
+      "isbn": "meta[property=books:isbn]",
+      "author": "meta[property=books:author]"
+    },
+    {
+      "id": "mif",
+      "name": "МИФ",
+      "adapter": "mif",
+      "enabled": true,
+      "prefixes": [
+        "978500117",
+        "978500214"
+      ],
+      "language": "ru",
+      "retryWithTitle": true
+    },
+    {
+      "id": "3dtotal",
+      "name": "3dtotal",
+      "adapter": "threeTotal",
+      "enabled": true,
+      "prefixes": [
+        "9781912843",
+        "9781909414"
+      ],
+      "language": "en",
+      "authorDetails": "main details:has(> summary:contains(More about this)) rte-formatter, main .product__description",
+      "author": "main .product__description [itemprop=author]"
+    },
+    {
+      "id": "sindbad",
+      "name": "Синдбад",
+      "adapter": "sindbad",
+      "enabled": true,
+      "isbnEnabled": false,
+      "language": "ru"
+    },
+    {
+      "id": "content",
+      "name": "Контэнт",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://content-publish.ru",
+      "titleSearch": "/?s={query}&post_type=product",
+      "isbnSearch": "/?s={query}&post_type=product",
+      "links": "main .woocommerce-loop-product__title a",
+      "path": "/shop/",
+      "language": "ru",
+      "prefixes": [
+        "978500141",
+        "978591906"
+      ],
+      "isbnGroups": [
+        3,
+        1,
+        5,
+        3,
+        1
+      ],
+      "isbn": ".product_field.sku .sku",
+      "author": ".woocommerce-product-attributes-item--attribute_pa_avtor .woocommerce-product-attributes-item__value a",
+      "cover": ".woocommerce-product-gallery__image img",
+      "coverAttribute": "data-large_image"
+    },
+    {
+      "id": "alpina",
+      "name": "Альпина",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://alpinabook.ru",
+      "titleSearch": "/search/?q={query}",
+      "isbnSearch": "/search/?q={query}",
+      "links": ".book-item-title__link",
+      "path": "/catalog/book-",
+      "language": "ru",
+      "isbn": "[itemprop=isbn]",
+      "author": ".b-book-primary__authors [itemprop=author]"
+    },
+    {
+      "id": "piter",
+      "name": "Питер",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://www.piter.com",
+      "titleSearch": "/collection/all?q={query}",
+      "isbnSearch": "/collection/all?q={query}",
+      "links": ".products-list .prod-block > a",
+      "path": "/collection/[^/]+/product/",
+      "language": "ru",
+      "prefixes": [
+        "97854461",
+        "9785496",
+        "9785388"
+      ],
+      "isbn": "li:has(> span:matchesOwn(^ISBN:)) > .grid-7",
+      "author": "p.author"
+    },
+    {
+      "id": "bhv",
+      "name": "БХВ",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://bhv.ru",
+      "titleSearch": "/?s={query}",
+      "isbnSearch": "/?s={query}",
+      "links": "main a[href*=/product/], #content a[href*=/product/]",
+      "path": "/product/",
+      "language": "ru",
+      "prefixes": [
+        "97859775"
+      ],
+      "isbn": "meta[itemprop=isbn]",
+      "author": "meta[itemprop=author]"
+    },
+    {
+      "id": "admarginem",
+      "name": "Ad Marginem",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://admarginem.ru",
+      "titleSearch": "/?s={query}&post_type=product",
+      "isbnSearch": "/?s={query}&post_type=product",
+      "links": ".item-catalog a.name-item",
+      "path": "/product/",
+      "language": "ru",
+      "isbn": ".item-description:has(.name-descr:matchesOwn(^ISBN$)) .value-descr",
+      "author": ".author-book .author-link",
+      "cover": ".woocommerce-product-gallery__image img",
+      "coverAttribute": "data-large_image"
+    },
+    {
+      "id": "art",
+      "name": "Арт-Волхонка",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://www.art-volkhonka.ru",
+      "titleSearch": "/catalog/?q={query}",
+      "isbnSearch": "/catalog/?q={query}",
+      "links": ".catalog-block__info a[href]",
+      "path": "/catalog/[^/]+/[^/]+/",
+      "language": "ru",
+      "isbn": ".properties-group__item:has(.properties-group__name:matchesOwn(^ISBN$)) .properties-group__value",
+      "author": ".properties-group__item:has(.properties-group__name:matchesOwn(^Авторы?$)) .properties-group__value"
+    },
+    {
+      "id": "hobbyteka",
+      "name": "Хоббитека",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://hobbyteka.ru",
+      "titleSearch": "/search/?q={query}",
+      "isbnSearch": "/search/?q={query}",
+      "links": ".search-result a.link",
+      "path": "/catalog/.+/.+/",
+      "language": "ru",
+      "isbn": ".info dd:matchesOwn(^ISBN:)",
+      "author": ".item-header .author",
+      "cover": ".images .hero img",
+      "coverAttribute": "src"
+    },
+    {
+      "id": "taschen",
+      "name": "TASCHEN",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://www.taschen.com",
+      "titleSearch": "/search/?searchPhrase={query}",
+      "isbnSearch": "/search/?searchPhrase={query}",
+      "links": "a[href*=/en/books/]",
+      "path": "/en/books/[^/]+/[0-9]+/",
+      "language": "en",
+      "prefixes": [
+        "97838365"
+      ],
+      "isbn": ".read-more__biography--book-isbn",
+      "author": ".read-more__biography--wrapper:has(.read-more__biography--title:matchesOwn((?i)author)) .read-more__biography--text > strong"
+    },
+    {
+      "id": "phaidon",
+      "name": "Phaidon",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://www.phaidon.com",
+      "titleSearch": "/en-us/search?q={query}&type=product",
+      "isbnSearch": "/en-us/search?q={query}&type=product",
+      "links": "main a.product-title",
+      "path": "/en-us/products/",
+      "language": "en",
+      "prefixes": [
+        "978183866",
+        "97807148"
+      ],
+      "isbn": "li.isbn",
+      "author": ".contributors[author]"
+    },
+    {
+      "id": "thames",
+      "name": "Thames & Hudson",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://www.thamesandhudson.com",
+      "titleSearch": "/search?q={query}&type=product",
+      "isbnSearch": "/search?q={query}&type=product",
+      "links": "main h3 a[href*=/products/]",
+      "path": "/products/",
+      "language": "en",
+      "prefixes": [
+        "9780500"
+      ],
+      "title": ".product__title",
+      "isbn": ".collapsible-content__answer-inner:contains(ISBN:)",
+      "author": ".product__text .single-authors a"
+    },
+    {
+      "id": "king",
+      "name": "Laurence King",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://www.laurenceking.com",
+      "titleSearch": "/search?q={query}&type=product",
+      "isbnSearch": "/search?q={query}&type=product",
+      "links": "main h3 a[href*=/products/]",
+      "path": "/products/",
+      "language": "en",
+      "prefixes": [
+        "978185669",
+        "978178627",
+        "9781913947"
+      ],
+      "isbn": ".details__list li:matchesOwn(^ISBN:)",
+      "author": ".contributors__list > li:has(> .contributors__role:matchesOwn((?i)^Authors?$)) .author-item .contributors__name"
+    },
+    {
+      "id": "searchpress",
+      "name": "Search Press",
+      "adapter": "html",
+      "enabled": true,
+      "base": "https://www.searchpress.com",
+      "titleSearch": "/search?keyword={query}&exactPhrase=y",
+      "isbnSearch": "/search?isbn={query}",
+      "links": "a[id*=lnkViewBook]",
+      "path": "/book/[0-9]+/",
+      "language": "en",
+      "prefixes": [
+        "978180092",
+        "978178221",
+        "978184448"
+      ],
+      "isbn": "li:has(strong:contains(ISBN 13))"
+    },
+    {
+      "id": "azbooka",
+      "name": "Азбука-Аттикус",
+      "adapter": "html",
+      "enabled": false,
+      "language": "ru",
+      "base": "https://azbooka.ru",
+      "reason": "04.10.2026: HTTP 502 / timeout; адаптер поиска не подтверждён"
+    },
+    {
+      "id": "google",
+      "name": "Google Books",
+      "adapter": "google",
+      "enabled": true,
+      "retryWithTitle": true
+    },
+    {
+      "id": "openlibrary",
+      "name": "Open Library",
+      "adapter": "openLibrary",
+      "enabled": true
+    },
+    {
+      "id": "web",
+      "name": "Веб-поиск",
+      "adapter": "web",
+      "enabled": true,
+      "titleEnabled": false
+    }
+  ]
+}
